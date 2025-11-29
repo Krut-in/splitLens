@@ -35,14 +35,22 @@ final class ImageUploadViewModel: ObservableObject {
     /// Photo picker selection
     @Published var photoPickerItem: PhotosPickerItem?
     
+    /// OCR confidence score (0.0 to 1.0)
+    @Published var ocrConfidence: Double?
+    
     // MARK: - Dependencies
     
     private let ocrService: OCRServiceProtocol
+    private let textParser: TextParserProtocol
     
     // MARK: - Initialization
     
-    init(ocrService: OCRServiceProtocol = DependencyContainer.shared.ocrService) {
+    init(
+        ocrService: OCRServiceProtocol = DependencyContainer.shared.ocrService,
+        textParser: TextParserProtocol = ReceiptTextParser()
+    ) {
         self.ocrService = ocrService
+        self.textParser = textParser
     }
     
     // MARK: - Image Selection
@@ -98,21 +106,36 @@ final class ImageUploadViewModel: ObservableObject {
         extractedItems = []
         
         do {
-            let items = try await ocrService.extractReceiptData(from: imageToProcess)
+            // Step 1: Extract raw text from image using OCR
+            let rawText = try await ocrService.processReceipt(images: [imageToProcess])
+            
+            // Step 2: Parse raw text into structured items
+            let items = try textParser.parseReceiptText(rawText)
+            
+            // Step 3: Calculate confidence score
+            let confidence = textParser.calculateConfidence(for: items)
+            ocrConfidence = confidence
             
             if items.isEmpty {
                 errorMessage = "No items found in the image"
             } else {
                 extractedItems = items
+                
+                // Show warning if confidence is low
+                if confidence < 0.7 {
+                    errorMessage = "Low confidence (\(Int(confidence * 100))%). Please verify extracted items."
+                }
             }
             
         } catch let error as OCRError {
             ErrorHandler.shared.log(error, context: "ImageUploadViewModel.processImage")
             errorMessage = error.userMessage
+            ocrConfidence = 0.0
             
         } catch {
             ErrorHandler.shared.log(error, context: "ImageUploadViewModel.processImage")
             errorMessage = "An unexpected error occurred"
+            ocrConfidence = 0.0
         }
         
         isProcessing = false
@@ -132,6 +155,7 @@ final class ImageUploadViewModel: ObservableObject {
         isProcessing = false
         errorMessage = nil
         photoPickerItem = nil
+        ocrConfidence = nil
     }
     
     // MARK: - Validation

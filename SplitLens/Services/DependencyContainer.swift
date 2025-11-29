@@ -30,25 +30,37 @@ final class DependencyContainer {
     // MARK: - Initialization
     
     private init() {
-        // Initialize services
-        // For Part 1, we use mock implementations
-        // In Part 2+, we'll switch to real implementations
+        // Get Supabase configuration
+        let config = SupabaseConfig.default
         
-        #if DEBUG
-        // Use mock services in debug mode for faster development
-        self.ocrService = MockOCRService()
-        self.supabaseService = MockSupabaseService.shared
-        #else
-        // Use real services in release mode
-        // NOTE: Currently using mock services in release builds until Supabase is fully configured
-        // To enable real services, update SupabaseConfig and switch to:
-        // - SupabaseOCRService(edgeFunctionURL:apiKey:)  
-        // - RealSupabaseService(projectURL:apiKey:)
-        self.ocrService = MockOCRService()
-        self.supabaseService = MockSupabaseService.shared
-        #endif
+        // Use real services if:
+        // 1. useMockServices is false AND
+        // 2. Configuration is valid (has real credentials)
+        let useRealServices = !config.useMockServices && config.isValid
         
-        // These services are the same in debug and release
+        if useRealServices {
+            // Real Supabase services
+            self.ocrService = DependencyContainer.createOCRService(withConfig: config)
+            self.supabaseService = DependencyContainer.createDatabaseService(withConfig: config)
+            
+            print("✅ Using REAL Supabase services")
+            print("   Project: \(config.projectURL)")
+        } else {
+            // Mock services for development/testing
+            self.ocrService = MockOCRService()
+            self.supabaseService = MockSupabaseService.shared
+            
+            if !config.isValid {
+                print("⚠️ Using MOCK services: Invalid Supabase configuration")
+                if let error = config.validationError {
+                    print("   Error: \(error)")
+                }
+            } else {
+                print("ℹ️ Using MOCK services: useMockServices = true")
+            }
+        }
+        
+        // These services are the same regardless of config
         self.billSplitEngine = BillSplitEngine()
         self.reportEngine = ReportGenerationEngine()
     }

@@ -210,6 +210,31 @@ struct ImageUploadView: View {
             }
             .padding(.horizontal)
             
+            // Confidence indicator
+            if let confidence = viewModel.ocrConfidence {
+                HStack(spacing: 8) {
+                    Image(systemName: confidence >= 0.7 ? "checkmark.shield.fill" : "exclamationmark.triangle.fill")
+                        .foregroundStyle(confidence >= 0.7 ? .green : .orange)
+                    
+                    Text("Confidence: \(Int(confidence * 100))%")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.secondary)
+                    
+                    if confidence < 0.7 {
+                        Text("• Please verify")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.orange)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(confidence >= 0.7 ? Color.green.opacity(0.1) : Color.orange.opacity(0.1))
+                )
+                .padding(.horizontal)
+            }
+            
             VStack(spacing: 10) {
                 ForEach(viewModel.extractedItems.prefix(5)) { item in
                     HStack {
