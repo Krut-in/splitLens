@@ -227,4 +227,65 @@ enum ValidationHelper {
             ? nil 
             : "\(fieldName) must not contain duplicates"
     }
+    
+    // MARK: - Item-Specific Validation
+    
+    /// Validates item name (length and characters)
+    ///
+    /// - Parameter name: Item name to validate
+    /// - Returns: Error message if invalid, nil if valid
+    static func validateItemName(_ name: String) -> String? {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        guard !trimmed.isEmpty else {
+            return "Item name cannot be empty"
+        }
+        
+        guard trimmed.count <= 50 else {
+            return "Item name too long (max 50 characters)"
+        }
+        
+        // Allow alphanumerics, spaces, hyphens, parentheses, common punctuation
+        let allowedCharacters = CharacterSet.alphanumerics
+            .union(.whitespaces)
+            .union(CharacterSet(charactersIn: "-(),.&'/"))
+        
+        guard trimmed.unicodeScalars.allSatisfy({ allowedCharacters.contains($0) }) else {
+            return "Item name contains invalid characters"
+        }
+        
+        return nil
+    }
+    
+    /// Validates single item price
+    ///
+    /// - Parameter price: Price to validate
+    /// - Returns: Error message if invalid, nil if valid
+    static func validateItemPrice(_ price: Double) -> String? {
+        guard price >= 0 else {
+            return "Price cannot be negative"
+        }
+        
+        guard price <= 1000.0 else {
+            return "Item price too high (max $1,000)"
+        }
+        
+        return nil
+    }
+    
+    /// Validates total bill amount
+    ///
+    /// - Parameter total: Total amount to validate
+    /// - Returns: Error message if invalid, nil if valid
+    static func validateTotalAmount(_ total: Double) -> String? {
+        guard total >= 0 else {
+            return "Total cannot be negative"
+        }
+        
+        guard total <= 10000.0 else {
+            return "Total too high (max $10,000)"
+        }
+        
+        return nil
+    }
 }

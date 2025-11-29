@@ -83,6 +83,14 @@ final class ParticipantsViewModel: ObservableObject {
     
     /// Adds participant from the newParticipantName field
     func addNewParticipant() {
+        let trimmedName = newParticipantName.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // FIX Scenario 1: Reject empty trimmed names
+        guard !trimmedName.isEmpty else {
+            errorMessage = "Name cannot be empty or just spaces"
+            return
+        }
+        
         addParticipant(newParticipantName)
         newParticipantName = ""
     }

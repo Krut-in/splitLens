@@ -154,7 +154,12 @@ final class RealSupabaseService: SupabaseServiceProtocol {
     
     /// Base URL for Supabase REST API
     private var baseURL: URL {
-        URL(string: "\(projectURL)/rest/v1/\(tableName)")!
+        get throws {
+            guard let url = URL(string: "\(projectURL)/rest/v1/\(tableName)") else {
+                throw DatabaseError.connectionFailed
+            }
+            return url
+        }
     }
     
     /// Creates a URLRequest with authentication headers
@@ -170,6 +175,7 @@ final class RealSupabaseService: SupabaseServiceProtocol {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.httpBody = body
+        request.timeoutInterval = 10.0  // 10-second timeout
         return request
     }
     
@@ -181,7 +187,7 @@ final class RealSupabaseService: SupabaseServiceProtocol {
         let jsonData = try encoder.encode(session)
         
         let request = createRequest(
-            url: baseURL,
+            url: try baseURL,
             method: "POST",
             body: jsonData
         )
@@ -200,7 +206,8 @@ final class RealSupabaseService: SupabaseServiceProtocol {
     }
     
     func fetchSession(id: UUID) async throws -> ReceiptSession {
-        let urlString = "\(baseURL.absoluteString)?id=eq.\(id.uuidString)"
+        let base = try baseURL
+        let urlString = "\(base.absoluteString)?id=eq.\(id.uuidString)"
         guard let url = URL(string: urlString) else {
             throw DatabaseError.fetchFailed("Invalid URL")
         }
@@ -233,7 +240,8 @@ final class RealSupabaseService: SupabaseServiceProtocol {
     }
     
     func fetchAllSessions(limit: Int? = nil) async throws -> [ReceiptSession] {
-        var urlString = "\(baseURL.absoluteString)?order=created_at.desc"
+        let base = try baseURL
+        var urlString = "\(base.absoluteString)?order=created_at.desc"
         
         if let limit = limit {
             urlString += "&limit=\(limit)"
@@ -265,7 +273,8 @@ final class RealSupabaseService: SupabaseServiceProtocol {
     }
     
     func deleteSession(id: UUID) async throws {
-        let urlString = "\(baseURL.absoluteString)?id=eq.\(id.uuidString)"
+        let base = try baseURL
+        let urlString = "\(base.absoluteString)?id=eq.\(id.uuidString)"
         guard let url = URL(string: urlString) else {
             throw DatabaseError.deleteFailed("Invalid URL")
         }
@@ -292,8 +301,11 @@ final class RealSupabaseService: SupabaseServiceProtocol {
     // MARK: - Storage Operations
     
     func uploadReceiptImage(_ image: UIImage, sessionId: UUID) async throws -> String {
-        // Convert image to JPEG
-        guard let imageData = image.jpegData(compressionQuality: 0.8) else {
+        // Convert image to JPEG with adaptive compression
+        let imageSize = image.size.width * image.size.height
+        let quality: CGFloat = imageSize > 5_000_000 ? 0.6 : 0.9
+        
+        guard let imageData = image.jpegData(compressionQuality: quality) else {
             throw StorageError.invalidImageFormat
         }
         
@@ -303,7 +315,9 @@ final class RealSupabaseService: SupabaseServiceProtocol {
         let storagePath = "\(sessionId.uuidString)/\(fileName)"
         
         // Construct storage URL
-        let storageURL = URL(string: "\(projectURL)/storage/v1/object/receipt-images/\(storagePath)")!
+        guard let storageURL = URL(string: "\(projectURL)/storage/v1/object/receipt-images/\(storagePath)") else {
+            throw StorageError.uploadFailed("Invalid storage URL")
+        }
         
         // Create request
         var request = URLRequest(url: storageURL)
@@ -312,6 +326,7 @@ final class RealSupabaseService: SupabaseServiceProtocol {
         request.setValue(apiKey, forHTTPHeaderField: "apikey")
         request.setValue("image/jpeg", forHTTPHeaderField: "Content-Type")
         request.httpBody = imageData
+        request.timeoutInterval = 10.0
         
         do {
             let (_, response) = try await URLSession.shared.data(for: request)
@@ -346,7 +361,9 @@ final class RealSupabaseService: SupabaseServiceProtocol {
         // OCR is handled by SupabaseOCRService which calls the Edge Function
         // This is here for protocol conformance
         
-        let ocrURL = URL(string: "\(projectURL)/functions/v1/extract-receipt-data")!
+        guard let ocrURL = URL(string: "\(projectURL)/functions/v1/extract-receipt-data") else {
+            throw OCRError.ocrServiceUnavailable
+        }
         
         // Convert to base64
         let base64Image = imageData.base64EncodedString()
@@ -361,7 +378,7 @@ final class RealSupabaseService: SupabaseServiceProtocol {
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = jsonData
-        request.timeoutInterval = 30.0
+        request.timeoutInterval = 10.0
         
         do {
             let (data, response) = try await URLSession.shared.data(for: request)

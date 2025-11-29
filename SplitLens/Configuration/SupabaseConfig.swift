@@ -26,21 +26,28 @@ struct SupabaseConfig {
     
     // MARK: - Default Configuration
     
-    /// Default configuration (uses environment or placeholders)
+    /// Default configuration (reads from environment variables set via Config.xcconfig)
     static let `default` = SupabaseConfig(
-        projectURL: ProcessInfo.processInfo.environment["SUPABASE_URL"] ?? "https://bnkpaikzslmwdcdmonoa.supabase.co",
-        apiKey: ProcessInfo.processInfo.environment["SUPABASE_API_KEY"] ?? "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJua3BhaWt6c2xtd2RjZG1vbm9hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQzNTExMzcsImV4cCI6MjA3OTkyNzEzN30.WdbnmVidZUToEo8pGshBOcNW-tUthspU_Ai8sbr-5Ss",
-        ocrFunctionURL: ProcessInfo.processInfo.environment["SUPABASE_OCR_URL"] ?? "https://bnkpaikzslmwdcdmonoa.supabase.co/functions/v1/extract-receipt-data",
-        useMockServices: false // Set to false when ready to use real Supabase
+        projectURL: ProcessInfo.processInfo.environment["SUPABASE_PROJECT_URL"] ?? "",
+        apiKey: ProcessInfo.processInfo.environment["SUPABASE_API_KEY"] ?? "",
+        ocrFunctionURL: ProcessInfo.processInfo.environment["SUPABASE_OCR_FUNCTION_URL"] ?? "",
+        useMockServices: false // Set to true to use mock services for development
     )
     
     // MARK: - Validation
     
-    /// Checks if the configuration is valid (not using placeholders)
+    /// Checks if all required configuration values are present
+    var isConfigured: Bool {
+        !projectURL.isEmpty &&
+        !apiKey.isEmpty &&
+        !ocrFunctionURL.isEmpty &&
+        projectURL.hasPrefix("https://") &&
+        apiKey.count > 20
+    }
+    
+    /// Legacy validation for backwards compatibility
     var isValid: Bool {
-        !projectURL.contains("YOUR_PROJECT_REF") &&
-        !apiKey.contains("YOUR_ANON_KEY") &&
-        !ocrFunctionURL.contains("YOUR_PROJECT_REF")
+        isConfigured
     }
     
     /// Validation error message if configuration is invalid

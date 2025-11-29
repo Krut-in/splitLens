@@ -81,9 +81,21 @@ final class ItemsEditorViewModel: ObservableObject {
     
     /// Adds a new item with provided details
     func addItem(name: String, quantity: Int, price: Double) {
+        // Validate item name
+        if let nameError = ValidationHelper.validateItemName(name) {
+            errorMessage = nameError
+            return
+        }
+        
+        // Validate price
+        if let priceError = ValidationHelper.validateItemPrice(price) {
+            errorMessage = priceError
+            return
+        }
+        
         let item = ReceiptItem(
             name: name,
-            quantity: quantity,
+            quantity: max(1, quantity),
             price: price
         )
         addItem(item)
@@ -130,7 +142,14 @@ final class ItemsEditorViewModel: ObservableObject {
     
     /// Updates the total amount
     func setTotal(_ amount: Double) {
+        // Validate total amount
+        if let totalError = ValidationHelper.validateTotalAmount(amount) {
+            errorMessage = totalError
+            return
+        }
+        
         totalAmount = max(0, amount)
+        errorMessage = nil
     }
     
     /// Recalculates total based on items

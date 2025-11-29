@@ -43,6 +43,9 @@ final class ImageUploadViewModel: ObservableObject {
     private let ocrService: OCRServiceProtocol
     private let textParser: TextParserProtocol
     
+    /// Current OCR processing task (for cancellation)
+    private var ocrTask: Task<Void, Never>?
+    
     // MARK: - Initialization
     
     init(
@@ -51,6 +54,10 @@ final class ImageUploadViewModel: ObservableObject {
     ) {
         self.ocrService = ocrService
         self.textParser = textParser
+    }
+    
+    deinit {
+        ocrTask?.cancel()
     }
     
     // MARK: - Image Selection
@@ -96,49 +103,65 @@ final class ImageUploadViewModel: ObservableObject {
     
     /// Processes the image through OCR service
     func processImage(_ image: UIImage? = nil) async {
+        // Cancel any ongoing OCR processing
+        ocrTask?.cancel()
+        
         guard let imageToProcess = image ?? selectedImage else {
             errorMessage = "No image selected"
             return
         }
         
-        isProcessing = true
-        errorMessage = nil
-        extractedItems = []
-        
-        do {
-            // Step 1: Extract raw text from image using OCR
-            let rawText = try await ocrService.processReceipt(images: [imageToProcess])
+        ocrTask = Task {
+            isProcessing = true
+            errorMessage = nil
+            extractedItems = []
             
-            // Step 2: Parse raw text into structured items
-            let items = try textParser.parseReceiptText(rawText)
-            
-            // Step 3: Calculate confidence score
-            let confidence = textParser.calculateConfidence(for: items)
-            ocrConfidence = confidence
-            
-            if items.isEmpty {
-                errorMessage = "No items found in the image"
-            } else {
-                extractedItems = items
+            do {
+                // Check for cancellation before starting
+                try Task.checkCancellation()
                 
-                // Show warning if confidence is low
-                if confidence < 0.7 {
-                    errorMessage = "Low confidence (\(Int(confidence * 100))%). Please verify extracted items."
+                // Step 1: Extract raw text from image using OCR
+                let rawText = try await ocrService.processReceipt(images: [imageToProcess])
+                
+                // Check for cancellation before parsing
+                try Task.checkCancellation()
+                
+                // Step 2: Parse raw text into structured items
+                let items = try textParser.parseReceiptText(rawText)
+                
+                // Step 3: Calculate confidence score
+                let confidence = textParser.calculateConfidence(for: items)
+                ocrConfidence = confidence
+                
+                if items.isEmpty {
+                    errorMessage = "No items found in the image"
+                } else {
+                    extractedItems = items
+                    
+                    // Show warning if confidence is low
+                    if confidence < 0.7 {
+                        errorMessage = "Low confidence (\(Int(confidence * 100))%). Please verify extracted items."
+                    }
                 }
+                
+            } catch is CancellationError {
+                // Silent cancellation - user likely selected a new image
+                return
+            } catch let error as OCRError {
+                ErrorHandler.shared.log(error, context: "ImageUploadViewModel.processImage")
+                errorMessage = error.userMessage
+                ocrConfidence = 0.0
+                
+            } catch {
+                ErrorHandler.shared.log(error, context: "ImageUploadViewModel.processImage")
+                errorMessage = "An unexpected error occurred"
+                ocrConfidence = 0.0
             }
             
-        } catch let error as OCRError {
-            ErrorHandler.shared.log(error, context: "ImageUploadViewModel.processImage")
-            errorMessage = error.userMessage
-            ocrConfidence = 0.0
-            
-        } catch {
-            ErrorHandler.shared.log(error, context: "ImageUploadViewModel.processImage")
-            errorMessage = "An unexpected error occurred"
-            ocrConfidence = 0.0
+            isProcessing = false
         }
         
-        isProcessing = false
+        await ocrTask?.value
     }
     
     /// Retries OCR processing

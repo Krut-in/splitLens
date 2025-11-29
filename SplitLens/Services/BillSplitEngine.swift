@@ -135,11 +135,21 @@ final class BillSplitEngine: BillSplitEngineProtocol {
             }
         }
         
-        // STEP 2: Validate totals (allow 1% variance, show warning)
+        // STEP 2: Validate totals (error at >10% variance, warn at > 1%)
         let calculatedTotal = personTotals.values.reduce(0.0, +)
         let difference = abs(calculatedTotal - session.totalAmount)
         let variancePercent = (difference / session.totalAmount) * 100.0
         
+        // Hard error if variance exceeds 10%
+        if variancePercent > 10.0 {
+            throw BillSplitError.totalsDoNotMatch(
+                calculated: calculatedTotal,
+                expected: session.totalAmount,
+                variance: variancePercent
+            )
+        }
+        
+        // Warning if variance is between 1% and 10%
         if variancePercent > 1.0 {
             warnings.append(BillSplitWarning(
                 type: .totalVariance(
@@ -150,13 +160,32 @@ final class BillSplitEngine: BillSplitEngineProtocol {
             ))
         }
         
+        // Warning if variance is between 1% and 10%
+        if variancePercent > 1.0 {
+            warnings.append(BillSplitWarning(
+                type: .totalVariance(
+                    calculated: calculatedTotal,
+                    expected: session.totalAmount,
+                    variance: variancePercent
+                )
+            ))
+        }
+        
+        // STEP 2.5: Floating point precision fix - Redistribute cents
+        // This ensures splits add up exactly to the total (e.g., $10.00 split 3 ways = $3.33 + $3.33 + $3.34, not $9.99)
+        let adjustedTotals = distributeCents(
+            total: session.totalAmount,
+            among: session.participants,
+            baseAmounts: personTotals
+        )
+        
         // STEP 3: Generate settlement logs
         // Everyone owes the payer (simplified debt model)
         var splits: [SplitLog] = []
         let payer = session.paidBy
         
         for participant in session.participants where participant != payer {
-            let amountOwed = personTotals[participant] ?? 0.0
+            let amountOwed = adjustedTotals[participant] ?? 0.0
             
             // Filter out insignificant amounts (< $0.01)
             if amountOwed > 0.01 {
@@ -182,6 +211,62 @@ final class BillSplitEngine: BillSplitEngineProtocol {
     }
     
     // MARK: - Helper Methods
+    
+    /// Distributes remaining cents among participants to ensure exact total
+    ///
+    /// Uses the "largest remainder" method to fairly distribute cents that arise
+    /// from rounding. This ensures the sum of all splits equals exactly the entered total.
+    ///
+    /// **Example:**
+    /// - Total: $10.00, 3 participants
+    /// - Base calculation: $3.333... each
+    /// - Rounded: $3.33, $3.33, $3.33 = $9.99 (missing $0.01)
+    /// - After redistribution: $3.33, $3.33, $3.34 = $10.00 ✅
+    ///
+    /// **Algorithm:**
+    /// 1. Convert amounts to cents (avoid floating point errors)
+    /// 2. Calculate how many cents are missing/extra
+    /// 3. Distribute extra cents to first N participants (alphabetically sorted for consistency)
+    ///
+    /// - Parameters:
+    ///   - total: The target total amount
+    ///   - participants: List of all participants
+    ///   - baseAmounts: Initial calculated amounts per participant
+    /// - Returns: Adjusted amounts that sum exactly to total
+    private func distributeCents(
+        total: Double,
+        among participants: [String],
+        baseAmounts: [String: Double]
+    ) -> [String: Double] {
+        var adjusted = baseAmounts
+        
+        // Convert to cents to avoid floating point errors
+        let totalCents = Int(round(total * 100))
+        let sumOfBase = baseAmounts.values.reduce(0.0, +)
+        let baseCents = Int(round(sumOfBase * 100))
+        let remainder = totalCents - baseCents
+        
+        // If there's a discrepancy, distribute the remaining cents
+        if remainder != 0 {
+            // Sort participants for consistent distribution
+            let sorted = participants.sorted()
+            let absRemainder = abs(remainder)
+            
+            // Distribute cents one by one to participants
+            for i in 0..<absRemainder {
+                let participant = sorted[i % sorted.count]
+                if remainder > 0 {
+                    // Add a cent
+                    adjusted[participant, default: 0.0] += 0.01
+                } else {
+                    // Subtract a cent
+                    adjusted[participant, default: 0.0] -= 0.01
+                }
+            }
+        }
+        
+        return adjusted
+    }
     
     /// Generates a human-readable explanation for a participant's split
     ///

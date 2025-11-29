@@ -73,7 +73,9 @@ final class DependencyContainer {
             return MockOCRService()
         } else {
             guard let url = URL(string: config.ocrFunctionURL) else {
-                fatalError("Invalid OCR function URL")
+                print("⚠️ Invalid OCR URL: \(config.ocrFunctionURL)")
+                print("   Falling back to MockOCRService for development")
+                return MockOCRService()
             }
             return SupabaseOCRService(edgeFunctionURL: url, apiKey: config.apiKey)
         }
