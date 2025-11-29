@@ -121,6 +121,7 @@ struct BalanceChart: View {
                 }
             }
             .frame(height: 280)
+            .animation(.easeInOut(duration: 0.8), value: sortedData.count)
             .accessibilityLabel("Net balance bar chart")
             .accessibilityValue(accessibilityDescription)
             

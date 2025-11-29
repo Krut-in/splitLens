@@ -62,6 +62,7 @@ struct SpendingPieChart: View {
             }
             .chartLegend(position: .bottom, alignment: .center, spacing: 12)
             .frame(height: 280)
+            .animation(.easeInOut(duration: 0.8), value: sortedData.count)
             .accessibilityLabel("Spending breakdown pie chart")
             .accessibilityValue(accessibilityDescription)
             

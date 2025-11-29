@@ -263,33 +263,6 @@ struct RecentSessionsPreview: View {
     }
 }
 
-// MARK: - Animated Gradient Background
-
-struct AnimatedGradientBackground: View {
-    @State private var animateGradient = false
-    
-    var body: some View {
-        LinearGradient(
-            colors: [
-                Color.blue.opacity(animateGradient ? 0.7 : 0.6),
-                Color.purple.opacity(animateGradient ? 0.6 : 0.7),
-                Color.pink.opacity(animateGradient ? 0.5 : 0.4)
-            ],
-            startPoint: animateGradient ? .topLeading : .bottomLeading,
-            endPoint: animateGradient ? .bottomTrailing : .topTrailing
-        )
-        .ignoresSafeArea()
-        .onAppear {
-            withAnimation(
-                .easeInOut(duration: 3.0)
-                    .repeatForever(autoreverses: true)
-            ) {
-                animateGradient = true
-            }
-        }
-    }
-}
-
 // MARK: - Preview
 
 #Preview {

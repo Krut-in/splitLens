@@ -139,4 +139,16 @@ extension HapticFeedback {
     func sessionSaved() {
         success()
     }
+    
+    // MARK: - Context-Aware Haptics
+    
+    /// Haptic for item assignment changes (assigning/unassigning items to people)
+    func itemAssignmentChanged() {
+        selectionGenerator.selectionChanged()
+    }
+    
+    /// Haptic for when split calculation completes successfully
+    func splitCalculated() {
+        success()
+    }
 }

@@ -128,12 +128,17 @@ struct ItemsEditorView: View {
                         viewModel.deleteItem(item)
                     }
                 )
+                .transition(.asymmetric(
+                    insertion: .scale.combined(with: .opacity),
+                    removal: .move(edge: .leading).combined(with: .opacity)
+                ))
             }
             .onDelete { indexSet in
                 viewModel.deleteItems(at: indexSet)
             }
         }
         .listStyle(.insetGrouped)
+        .animation(.spring(response: 0.4, dampingFraction: 0.75), value: viewModel.items.count)
     }
 }
 

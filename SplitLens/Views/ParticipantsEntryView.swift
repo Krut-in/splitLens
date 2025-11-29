@@ -193,8 +193,13 @@ struct ParticipantsEntryView: View {
                     .background(Color(.secondarySystemBackground))
                     .background(.ultraThinMaterial)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .trailing).combined(with: .scale.combined(with: .opacity)),
+                        removal: .scale(scale: 0.8).combined(with: .opacity)
+                    ))
                 }
             }
+            .animation(.spring(response: 0.35, dampingFraction: 0.7), value: viewModel.participants)
         }
     }
     

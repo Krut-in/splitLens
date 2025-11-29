@@ -60,6 +60,7 @@
 		F374ADA62EDAB89000DF0376 /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F374AD9A2EDAB88F00DF0376 /* EmptyStateView.swift */; };
 		F374ADA82EDAB8A800DF0376 /* FinalReportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F374ADA72EDAB8A800DF0376 /* FinalReportView.swift */; };
 		F374ADAA2EDAB8B300DF0376 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F374ADA92EDAB8B300DF0376 /* HistoryView.swift */; };
+		F3CAC4912EDB538F004D4E76 /* AnimatedGradientBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3CAC4902EDB538E004D4E76 /* AnimatedGradientBackground.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -118,6 +119,7 @@
 		F374AD9F2EDAB88F00DF0376 /* SummaryCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryCard.swift; sourceTree = "<group>"; };
 		F374ADA72EDAB8A800DF0376 /* FinalReportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinalReportView.swift; sourceTree = "<group>"; };
 		F374ADA92EDAB8B300DF0376 /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
+		F3CAC4902EDB538E004D4E76 /* AnimatedGradientBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnimatedGradientBackground.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -264,6 +266,7 @@
 		F374ADA02EDAB88F00DF0376 /* Components */ = {
 			isa = PBXGroup;
 			children = (
+				F3CAC4902EDB538E004D4E76 /* AnimatedGradientBackground.swift */,
 				F374AD9A2EDAB88F00DF0376 /* EmptyStateView.swift */,
 				F374AD9B2EDAB88F00DF0376 /* ErrorBanner.swift */,
 				F374AD9C2EDAB88F00DF0376 /* LoadingOverlay.swift */,
@@ -358,6 +361,7 @@
 				AA0007 /* SplitLog.swift in Sources */,
 				F348DE392EDAC0F7003D37D7 /* ActionButton.swift in Sources */,
 				F348DE3A2EDAC0F7003D37D7 /* OweLentChart.swift in Sources */,
+				F3CAC4912EDB538F004D4E76 /* AnimatedGradientBackground.swift in Sources */,
 				F348DE3B2EDAC0F7003D37D7 /* BalanceChart.swift in Sources */,
 				F348DE412EDAC20E003D37D7 /* Route.swift in Sources */,
 				F348DE3C2EDAC0F7003D37D7 /* SpendingPieChart.swift in Sources */,

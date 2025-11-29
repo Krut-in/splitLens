@@ -106,6 +106,7 @@ struct OweLentChart: View {
                 }
             }
             .frame(height: max(CGFloat(sortedData.count) * 50, 200))
+            .animation(.easeInOut(duration: 0.8), value: sortedData.count)
             .accessibilityLabel("Owe versus lent bar chart")
             .accessibilityValue(accessibilityDescription)
         }
