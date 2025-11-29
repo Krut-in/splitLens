@@ -7,6 +7,8 @@
 
 import SwiftUI
 
+// Note: Route enum defined in Navigation/Route.swift
+
 /// Home screen with main navigation options
 struct HomeView: View {
     // MARK: - Environment

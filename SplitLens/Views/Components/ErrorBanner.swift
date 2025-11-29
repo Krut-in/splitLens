@@ -122,7 +122,7 @@ struct ErrorBanner: View {
         )
         
         ErrorBanner(
-            error: OCRError.imageTooSmall,
+            error: OCRError.imageProcessingFailed,
             retryAction: {
                 print("Retrying...")
             }
@@ -133,7 +133,7 @@ struct ErrorBanner: View {
 
 #Preview("Without Retry") {
     ErrorBanner(
-        error: BillSplitError.invalidInput("Invalid total amount"),
+        error: BillSplitError.noParticipants,
         retryAction: nil
     )
     .padding()

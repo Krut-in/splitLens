@@ -22,6 +22,10 @@ struct FinalReportView: View {
     
     @State private var showShareSheet = false
     @State private var shareText = ""
+    @State private var selectedSplit: SplitLog?
+    @State private var showExportMenu = false
+    @State private var selectedChartTab = 0
+    @State private var shareItems: [Any] = []
     
     // MARK: - Initialization
     
@@ -55,13 +59,19 @@ struct FinalReportView: View {
                     // Warnings (if any)
                     warningsSection
                     
+                    // Per-person breakdown
+                    perPersonBreakdownSection
+                    
+                    // Charts section
+                    chartsSection
+                    
                     // Settlement list
                     settlementSection
                     
                     // Action buttons
                     actionsSection
                     
-                    Spacer (minLength: 20)
+                    Spacer(minLength: 20)
                 }
                 .padding()
             }
@@ -69,8 +79,21 @@ struct FinalReportView: View {
         .navigationTitle("Split Report")
         .navigationBarTitleDisplayMode(.large)
         .sheet(isPresented: $showShareSheet) {
-            ShareSheet(items: [shareText])
+            ShareSheet(items: shareItems)
         }
+        .sheet(item: $selectedSplit) { split in
+            SettlementDetailModal(split: split, session: viewModel.session)
+        }
+        .confirmationDialog("Export Format", isPresented: $showExportMenu) {
+            ForEach(ReportViewModel.ExportFormat.allCases) { format in
+                Button(action: {
+                    handleExport(format: format)
+                }) {
+                    Label(format.rawValue, systemImage: format.icon)
+                }
+            }
+        }
+        .successToast(message: viewModel.toastMessage, isShowing: $viewModel.showSuccessToast)
     }
     
     // MARK: - Sections
@@ -166,6 +189,95 @@ struct FinalReportView: View {
         }
     }
     
+    private var perPersonBreakdownSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Per-Person Breakdown")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundStyle(.primary)
+            
+            VStack(spacing: 12) {
+                ForEach(viewModel.session.participants.sorted(), id: \.self) { person in
+                    personBreakdownRow(person)
+                }
+            }
+        }
+    }
+    
+    private func personBreakdownRow(_ person: String) -> some View {
+        let total = viewModel.session.totalOwed(by: person)
+        let balance = viewModel.getBalances()[person] ?? 0
+        
+        return HStack(spacing: 12) {
+            Circle()
+                .fill(balance >= 0 ? Color.green.opacity(0.2) : Color.red.opacity(0.2))
+                .frame(width: 44, height: 44)
+                .overlay(
+                    Text(person.prefix(1).uppercased())
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(balance >= 0 ? .green : .red)
+                )
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(person)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.primary)
+                
+                Text(person == viewModel.session.paidBy ? "Paid the bill" : "Participant")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+            }
+            
+            Spacer()
+            
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(CurrencyFormatter.shared.format(total))
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                    .foregroundStyle(.primary)
+                
+                if balance != 0 {
+                    Text(balance > 0 ? "Owed \(CurrencyFormatter.shared.format(balance))" : "Owes \(CurrencyFormatter.shared.format(abs(balance)))")
+                        .font(.system(size: 12))
+                        .foregroundStyle(balance > 0 ? .green : .red)
+                }
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(.ultraThinMaterial)
+        )
+        .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+    }
+    
+    private var chartsSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Visualizations")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundStyle(.primary)
+            
+            Picker("Chart Type", selection: $selectedChartTab) {
+                Text("Spending").tag(0)
+                Text("Balance").tag(1)
+                Text("Owe/Lent").tag(2)
+            }
+            .pickerStyle(.segmented)
+            
+            TabView(selection: $selectedChartTab) {
+                SpendingPieChart(personTotals: viewModel.getPersonTotals())
+                    .tag(0)
+                
+                BalanceChart(balances: viewModel.getBalances())
+                    .tag(1)
+                
+                OweLentChart(oweLentData: viewModel.getOweLentData())
+                    .tag(2)
+            }
+            .frame(height: 400)
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .animation(.easeInOut, value: selectedChartTab)
+        }
+    }
+    
     private var settlementSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Settlements")
@@ -181,7 +293,7 @@ struct FinalReportView: View {
                 VStack(spacing: 12) {
                     ForEach(viewModel.formattedSplits) { split in
                         SplitLogRow(log: split) {
-                            // Show detail modal
+                            selectedSplit = split
                         }
                     }
                 }
@@ -195,27 +307,26 @@ struct FinalReportView: View {
             ActionButton(
                 icon: "square.and.arrow.down.fill",
                 title: viewModel.isSaved ? "Saved!" : "Save to History",
-                color: viewModel.isSaved ? .green : .blue
+                color: viewModel.isSaved ? .green : .blue,
+                isDisabled: viewModel.isSaved || viewModel.isSaving
             ) {
                 Task {
                     await viewModel.saveSession()
                 }
             }
-            .disabled(viewModel.isSaved || viewModel.isSaving)
             
-            // Share button
+            // Export button
             ActionButton(
                 icon: "square.and.arrow.up.fill",
-                title: "Share Report",
-                color: .purple
+                title: "Export Report",
+                color: .purple,
+                isLoading: viewModel.isGeneratingPDF
             ) {
-                shareText = viewModel.getShareableSummary()
-                showShareSheet = true
+                showExportMenu = true
             }
             
             // Done button
             Button(action: {
-                // Return to home
                 navigationPath.removeLast(navigationPath.count)
             }) {
                 Text("Done")
@@ -227,6 +338,39 @@ struct FinalReportView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 12))
             }
             .buttonStyle(.plain)
+        }
+    }
+    
+    // MARK: - Export Handling
+    
+    private func handleExport(format: ReportViewModel.ExportFormat) {
+        Task {
+            switch format {
+            case .pdf:
+                if let pdfData = await viewModel.exportAsPDF() {
+                    // Save to temp file for sharing
+                    let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("SplitLens_Report.pdf")
+                    try? pdfData.write(to: tempURL)
+                    shareItems = [tempURL]
+                    showShareSheet = true
+                }
+                
+            case .csv:
+                shareText = viewModel.exportAsCSV()
+                shareItems = [shareText]
+                showShareSheet = true
+                
+            case .text:
+                shareText = viewModel.getShareableSummary()
+                shareItems = [shareText]
+                showShareSheet = true
+                
+            case .json:
+                if let jsonText = viewModel.exportAsJSON() {
+                    shareItems = [jsonText]
+                    showShareSheet = true
+                }
+            }
         }
     }
 }

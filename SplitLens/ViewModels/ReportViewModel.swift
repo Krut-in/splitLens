@@ -34,6 +34,18 @@ final class ReportViewModel: ObservableObject {
     /// Whether to show share sheet
     @Published var showShareSheet = false
     
+    /// Selected export format
+    @Published var selectedExportFormat: ExportFormat = .pdf
+    
+    /// Loading state for PDF generation
+    @Published var isGeneratingPDF = false
+    
+    /// Show success toast
+    @Published var showSuccessToast = false
+    
+    /// Success toast message
+    @Published var toastMessage = ""
+    
     // MARK: - Dependencies
     
     private let billSplitEngine: BillSplitEngineProtocol
@@ -184,6 +196,100 @@ final class ReportViewModel: ObservableObject {
     /// Gets splits for a specific participant
     func splitsFor(participant: String) -> [SplitLog] {
         session.splits(for: participant)
+    }
+    
+    // MARK: - PDF Export
+    
+    /// Exports as PDF with loading state
+    func exportAsPDF() async -> Data? {
+        isGeneratingPDF = true
+        
+        // Simulate slight delay for large reports
+        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        
+        let pdfData = reportEngine.generatePDF(for: session)
+        
+        isGeneratingPDF = false
+        
+        if !pdfData.isEmpty {
+            toastMessage = "PDF generated successfully!"
+            showSuccessToast = true
+        }
+        
+        return pdfData
+    }
+    
+    // MARK: - Chart Data
+    
+    /// Gets per-person totals for pie chart
+    func getPersonTotals() -> [String: Double] {
+        var totals: [String: Double] = [:]
+        for participant in session.participants {
+            totals[participant] = session.totalOwed(by: participant)
+        }
+        return totals
+    }
+    
+    /// Gets balance data for balance chart
+    func getBalances() -> [String: Double] {
+        var balances: [String: Double] = [:]
+        for participant in session.participants {
+            let owed = session.totalOwed(by: participant)
+            let balance: Double
+            
+            if participant == session.paidBy {
+                // Payer's balance = total - their consumption
+                balance = session.totalAmount - owed
+            } else {
+                // Others owe money (negative balance)
+                balance = -owed
+            }
+            
+            balances[participant] = balance
+        }
+        return balances
+    }
+    
+    /// Gets owe/lent data for bar chart
+    func getOweLentData() -> [(String, Double)] {
+        getBalances().sorted { $0.key < $1.key }
+    }
+    
+    /// Gets items for a specific split (for drill-down)
+    func getItemsForSplit(_ split: SplitLog) -> [ReceiptItem] {
+        session.items.filter { $0.isAssigned(to: split.from) }
+    }
+}
+
+// MARK: - Export Format
+
+extension ReportViewModel {
+    /// Available export formats
+    enum ExportFormat: String, CaseIterable, Identifiable {
+        case pdf = "PDF"
+        case csv = "CSV"
+        case text = "Text"
+        case json = "JSON"
+        
+        var id: String { rawValue }
+        
+        var icon: String {
+            switch self {
+            case .pdf: return "doc.fill"
+            case .csv: return "tablecells.fill"
+            case .text: return "doc.text.fill"
+            case .json: return "curlybraces"
+            }
+        }
+        
+        var fileExtension: String {
+            switch self {
+            case .pdf: return "pdf"
+            case .csv: return "csv"
+            case .text: return "txt"
+            case .json: return "json"
+            }
+        }
     }
 }
 

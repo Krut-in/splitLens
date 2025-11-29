@@ -6,6 +6,8 @@
 //
 
 import Foundation
+import PDFKit
+
 
 // MARK: - Report Generation Protocol
 
@@ -25,12 +27,25 @@ protocol ReportGenerationEngineProtocol {
     
     /// Generates JSON format for API integration
     func generateJSON(for session: ReceiptSession) throws -> Data
+    
+    /// Generates PDF format for professional reports
+    func generatePDF(for session: ReceiptSession) -> Data
 }
 
 // MARK: - Report Generation Engine
 
 /// Implements report generation with multiple format options
 final class ReportGenerationEngine: ReportGenerationEngineProtocol {
+    
+    // MARK: - Dependencies
+    
+    private let pdfGenerator: PDFGenerator
+    
+    // MARK: - Initialization
+    
+    init(pdfGenerator: PDFGenerator = PDFGenerator()) {
+        self.pdfGenerator = pdfGenerator
+    }
     
     // MARK: - Text Report
     
@@ -194,5 +209,10 @@ final class ReportGenerationEngine: ReportGenerationEngineProtocol {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
         return try encoder.encode(session)
+    }
+    
+    /// Generates PDF format for professional reports
+    func generatePDF(for session: ReceiptSession) -> Data {
+        return pdfGenerator.generateReport(session: session)
     }
 }
