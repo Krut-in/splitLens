@@ -43,8 +43,7 @@ struct ActionButton: View {
         Button(action: {
             if !isDisabled && !isLoading {
                 // Haptic feedback
-                let generator = UIImpactFeedbackGenerator(style: .medium)
-                generator.impactOccurred()
+                HapticFeedback.shared.mediumImpact()
                 action()
             }
         }) {

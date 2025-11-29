@@ -63,8 +63,7 @@ struct SettlementDetailModal: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {
-                        let generator = UIImpactFeedbackGenerator(style: .light)
-                        generator.impactOccurred()
+                        HapticFeedback.shared.lightImpact()
                         dismiss()
                     }
                     .fontWeight(.semibold)

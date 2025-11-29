@@ -66,8 +66,7 @@ struct EmptyStateView: View {
             // Optional action button
             if let action = action, let label = actionLabel {
                 Button(action: {
-                    let generator = UIImpactFeedbackGenerator(style: .medium)
-                    generator.impactOccurred()
+                    HapticFeedback.shared.mediumImpact()
                     action()
                 }) {
                     HStack(spacing: 8) {

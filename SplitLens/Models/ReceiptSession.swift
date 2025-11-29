@@ -102,18 +102,12 @@ struct ReceiptSession: Identifiable, Codable, Equatable {
     
     /// Formatted creation date string
     var formattedDate: String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        return formatter.string(from: createdAt)
+        AppConstants.Formatters.dateTime.string(from: createdAt)
     }
     
     /// Short date format for list displays (e.g., "Nov 28, 2024")
     var shortFormattedDate: String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .none
-        return formatter.string(from: createdAt)
+        AppConstants.Formatters.date.string(from: createdAt)
     }
     
     // MARK: - Validation

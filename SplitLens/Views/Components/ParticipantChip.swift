@@ -19,9 +19,7 @@ struct ParticipantChip: View {
     
     var body: some View {
         Button(action: {
-            // Haptic feedback
-            let generator = UIImpactFeedbackGenerator(style: .medium)
-            generator.impactOccurred()
+            HapticFeedback.shared.mediumImpact()
             action()
         }) {
             HStack(spacing: 6) {

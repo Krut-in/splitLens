@@ -40,9 +40,12 @@ final class DependencyContainer {
         self.supabaseService = MockSupabaseService.shared
         #else
         // Use real services in release mode
-        // TODO: Replace with actual configuration from SupabaseConfig
-        self.ocrService = MockOCRService() // Will be SupabaseOCRService
-        self.supabaseService = MockSupabaseService.shared // Will be RealSupabaseService
+        // NOTE: Currently using mock services in release builds until Supabase is fully configured
+        // To enable real services, update SupabaseConfig and switch to:
+        // - SupabaseOCRService(edgeFunctionURL:apiKey:)  
+        // - RealSupabaseService(projectURL:apiKey:)
+        self.ocrService = MockOCRService()
+        self.supabaseService = MockSupabaseService.shared
         #endif
         
         // These services are the same in debug and release

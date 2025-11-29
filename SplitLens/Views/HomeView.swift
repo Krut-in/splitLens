@@ -165,8 +165,7 @@ struct HomeActionButton: View {
     
     var body: some View {
         Button(action: {
-            let generator = UIImpactFeedbackGenerator(style: .medium)
-            generator.impactOccurred()
+            HapticFeedback.shared.mediumImpact()
             action()
         }) {
             HStack(spacing: 20) {

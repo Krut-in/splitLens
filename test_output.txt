@@ -1,0 +1,7 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test -project SplitLens.xcodeproj -scheme SplitLens -destination "platform=iOS Simulator,name=iPhone 17 Pro"
+
+2025-11-29 01:05:27.029 xcodebuild[63305:10275423] [MT] IDERunDestination: Supported platforms for the buildables in the current scheme is empty.
+2025-11-29 01:05:27.039 xcodebuild[63305:10275423] Writing error result bundle to /var/folders/bd/fff86v_52892xq1pngqh2bv40000gn/T/ResultBundle_2025-29-11_01-05-0027.xcresult
+xcodebuild: error: Scheme SplitLens is not currently configured for the test action.
+

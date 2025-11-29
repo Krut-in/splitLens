@@ -100,4 +100,30 @@ enum AppConstants {
         
         // Add more UI-related constants as needed
     }
+    
+    // MARK: - Formatters
+    
+    /// Cached formatters to improve performance by avoiding repeated instantiation
+    enum Formatters {
+        /// Date and time formatter (e.g., "Nov 28, 2024 at 3:45 PM")
+        ///
+        /// **Performance**: DateFormatter creation is expensive, this singleton
+        /// reduces overhead from O(n) to O(1) for date formatting operations
+        static let dateTime: DateFormatter = {
+            let formatter = DateFormatter()
+            formatter.dateStyle = .medium
+            formatter.timeStyle = .short
+            return formatter
+        }()
+        
+        /// Date-only formatter (e.g., "Nov 28, 2024")
+        ///
+        /// Used for list views and session history
+        static let date: DateFormatter = {
+            let formatter = DateFormatter()
+            formatter.dateStyle = .medium
+            formatter.timeStyle = .none
+            return formatter
+        }()
+    }
 }

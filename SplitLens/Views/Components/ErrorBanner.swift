@@ -54,8 +54,7 @@ struct ErrorBanner: View {
             // Retry button
             if let retry = retryAction {
                 Button(action: {
-                    let generator = UIImpactFeedbackGenerator(style: .medium)
-                    generator.impactOccurred()
+                    HapticFeedback.shared.mediumImpact()
                     retry()
                 }) {
                     HStack(spacing: 6) {

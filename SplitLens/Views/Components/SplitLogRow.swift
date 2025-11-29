@@ -26,8 +26,7 @@ struct SplitLogRow: View {
     var body: some View {
         Button(action: {
             if let onTap = onTap {
-                let generator = UIImpactFeedbackGenerator(style: .light)
-                generator.impactOccurred()
+                HapticFeedback.shared.lightImpact()
                 onTap()
             }
         }) {
