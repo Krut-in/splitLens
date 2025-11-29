@@ -1,0 +1,159 @@
+//
+//  ReceiptItem.swift
+//  SplitLens
+//
+//  Receipt item model representing a single line item from a scanned receipt
+//
+
+import Foundation
+
+/// Represents a single item from a receipt with assignment capabilities
+struct ReceiptItem: Identifiable, Codable, Equatable {
+    // MARK: - Properties
+    
+    /// Unique identifier for the item
+    var id: UUID
+    
+    /// Name/description of the item
+    var name: String
+    
+    /// Quantity of the item
+    var quantity: Int
+    
+    /// Price per unit (or total price if quantity is 1)
+    var price: Double
+    
+    /// List of participant names this item is assigned to (supports splitting)
+    var assignedTo: [String]
+    
+    // MARK: - Initialization
+    
+    /// Creates a new receipt item with default values
+    init(
+        id: UUID = UUID(),
+        name: String = "",
+        quantity: Int = 1,
+        price: Double = 0.0,
+        assignedTo: [String] = []
+    ) {
+        self.id = id
+        self.name = name
+        self.quantity = quantity
+        self.price = price
+        self.assignedTo = assignedTo
+    }
+    
+    // MARK: - Computed Properties
+    
+    /// Total price for this item (quantity × price)
+    var totalPrice: Double {
+        Double(quantity) * price
+    }
+    
+    /// Whether the item is assigned to anyone
+    var isAssigned: Bool {
+        !assignedTo.isEmpty
+    }
+    
+    /// Number of people this item is shared among
+    var sharingCount: Int {
+        assignedTo.count
+    }
+    
+    /// Price per person if split equally among assigned participants
+    var pricePerPerson: Double {
+        guard sharingCount > 0 else { return 0.0 }
+        return totalPrice / Double(sharingCount)
+    }
+    
+    /// Formatted total price string (e.g., "$12.50")
+    var formattedTotalPrice: String {
+        formatCurrency(totalPrice)
+    }
+    
+    /// Formatted price per person (e.g., "$6.25 each")
+    var formattedPricePerPerson: String {
+        let amount = formatCurrency(pricePerPerson)
+        return sharingCount > 1 ? "\(amount) each" : amount
+    }
+    
+    // MARK: - Validation
+    
+    /// Validates the item has required data
+    var isValid: Bool {
+        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        quantity > 0 &&
+        price >= 0
+    }
+    
+    // MARK: - Assignment Methods
+    
+    /// Assigns this item to a specific participant
+    mutating func assign(to participant: String) {
+        if !assignedTo.contains(participant) {
+            assignedTo.append(participant)
+        }
+    }
+    
+    /// Removes a participant from this item's assignment
+    mutating func unassign(from participant: String) {
+        assignedTo.removeAll { $0 == participant }
+    }
+    
+    /// Toggles assignment for a participant (add if not present, remove if present)
+    mutating func toggleAssignment(for participant: String) {
+        if assignedTo.contains(participant) {
+            unassign(from: participant)
+        } else {
+            assign(to: participant)
+        }
+    }
+    
+    /// Checks if this item is assigned to a specific participant
+    func isAssigned(to participant: String) -> Bool {
+        assignedTo.contains(participant)
+    }
+    
+    // MARK: - Helper Methods
+    
+    /// Formats a currency value to string with $ symbol
+    private func formatCurrency(_ value: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencyCode = "USD"
+        formatter.maximumFractionDigits = 2
+        return formatter.string(from: NSNumber(value: value)) ?? "$0.00"
+    }
+}
+
+// MARK: - Sample Data
+
+extension ReceiptItem {
+    /// Sample data for previews and testing
+    static var sample: ReceiptItem {
+        ReceiptItem(
+            name: "Caesar Salad",
+            quantity: 1,
+            price: 12.99,
+            assignedTo: ["Alice"]
+        )
+    }
+    
+    static var sampleShared: ReceiptItem {
+        ReceiptItem(
+            name: "Pizza (Large)",
+            quantity: 1,
+            price: 24.99,
+            assignedTo: ["Alice", "Bob", "Charlie"]
+        )
+    }
+    
+    static var samples: [ReceiptItem] {
+        [
+            ReceiptItem(name: "Caesar Salad", quantity: 1, price: 12.99, assignedTo: ["Alice"]),
+            ReceiptItem(name: "Burger", quantity: 2, price: 15.99, assignedTo: ["Bob"]),
+            ReceiptItem(name: "Pizza (Large)", quantity: 1, price: 24.99, assignedTo: ["Alice", "Bob", "Charlie"]),
+            ReceiptItem(name: "Coke", quantity: 3, price: 2.99, assignedTo: [])
+        ]
+    }
+}
