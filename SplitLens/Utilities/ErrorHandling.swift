@@ -25,9 +25,11 @@ enum OCRError: AppError {
     case imageProcessingFailed
     case noTextDetected
     case invalidImageFormat
+    case invalidImage
     case ocrServiceUnavailable
     case networkError(Error)
     case parsingFailed(String)
+    case timeout
     case unknown(Error)
     
     var userMessage: String {
@@ -38,12 +40,16 @@ enum OCRError: AppError {
             return "No text was detected in the image. Please ensure the receipt is clearly visible."
         case .invalidImageFormat:
             return "The image format is not supported. Please use JPG or PNG."
+        case .invalidImage:
+            return "Image quality too low. Try better lighting."
         case .ocrServiceUnavailable:
             return "OCR service is currently unavailable. Please try again later."
         case .networkError:
             return "Network error occurred. Please check your internet connection."
         case .parsingFailed:
             return "Unable to extract receipt data. Please try manual entry."
+        case .timeout:
+            return "Request timed out. Please retry."
         case .unknown:
             return "An unexpected error occurred during OCR processing."
         }
@@ -57,12 +63,16 @@ enum OCRError: AppError {
             return "OCR engine returned no text results"
         case .invalidImageFormat:
             return "Image format validation failed"
+        case .invalidImage:
+            return "Image size too small or quality insufficient"
         case .ocrServiceUnavailable:
             return "OCR endpoint returned 503 or timeout"
         case .networkError(let error):
             return "Network error: \(error.localizedDescription)"
         case .parsingFailed(let details):
             return "Data parsing failed: \(details)"
+        case .timeout:
+            return "Request exceeded 30-second timeout"
         case .unknown(let error):
             return "Unknown OCR error: \(error.localizedDescription)"
         }
@@ -224,6 +234,49 @@ enum BillSplitError: AppError {
             return "Sum of splits doesn't match total within tolerance"
         case .invalidConfiguration:
             return "Split configuration validation failed"
+        }
+    }
+    
+    var errorDescription: String? { userMessage }
+}
+
+// MARK: - Storage Errors
+
+/// Errors that can occur during storage operations
+enum StorageError: AppError {
+    case uploadFailed(String)
+    case quotaExceeded
+    case invalidImageFormat
+    case networkError(Error)
+    case unknown(Error)
+    
+    var userMessage: String {
+        switch self {
+        case .uploadFailed:
+            return "Failed to upload image. Please try again."
+        case .quotaExceeded:
+            return "Storage quota exceeded. Please contact support."
+        case .invalidImageFormat:
+            return "Invalid image format. Please use JPG or PNG."
+        case .networkError:
+            return "Network error occurred. Please check your connection."
+        case .unknown:
+            return "An unexpected storage error occurred."
+        }
+    }
+    
+    var technicalDetails: String {
+        switch self {
+        case .uploadFailed(let details):
+            return "Storage upload failed: \(details)"
+        case .quotaExceeded:
+            return "Storage quota limit reached"
+        case .invalidImageFormat:
+            return "Image format not supported by storage"
+        case .networkError(let error):
+            return "Network error: \(error.localizedDescription)"
+        case .unknown(let error):
+            return "Unknown storage error: \(error.localizedDescription)"
         }
     }
     
