@@ -27,6 +27,10 @@
 		AA0018 /* HistoryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0018 /* HistoryViewModel.swift */; };
 		AA0019 /* ErrorHandling.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0019 /* ErrorHandling.swift */; };
 		AA0020 /* SupabaseConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0020 /* SupabaseConfig.swift */; };
+		F3B22AA22EDAB39D00E8E642 /* ValidationHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3B22AA12EDAB39C00E8E642 /* ValidationHelper.swift */; };
+		F3B22AA42EDAB3A400E8E642 /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3B22AA32EDAB3A400E8E642 /* Constants.swift */; };
+		F3B22AA62EDAB3AD00E8E642 /* CurrencyFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3B22AA52EDAB3AD00E8E642 /* CurrencyFormatter.swift */; };
+		F3B22AA82EDAB3C700E8E642 /* DoubleExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3B22AA72EDAB3C700E8E642 /* DoubleExtensions.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -52,6 +56,10 @@
 		BB0020 /* SupabaseConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseConfig.swift; sourceTree = "<group>"; };
 		BB0021 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		CC0001 /* SplitLens.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SplitLens.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F3B22AA12EDAB39C00E8E642 /* ValidationHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ValidationHelper.swift; sourceTree = "<group>"; };
+		F3B22AA32EDAB3A400E8E642 /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
+		F3B22AA52EDAB3AD00E8E642 /* CurrencyFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrencyFormatter.swift; sourceTree = "<group>"; };
+		F3B22AA72EDAB3C700E8E642 /* DoubleExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoubleExtensions.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -152,6 +160,10 @@
 		EE0009 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
+				F3B22AA72EDAB3C700E8E642 /* DoubleExtensions.swift */,
+				F3B22AA52EDAB3AD00E8E642 /* CurrencyFormatter.swift */,
+				F3B22AA32EDAB3A400E8E642 /* Constants.swift */,
+				F3B22AA12EDAB39C00E8E642 /* ValidationHelper.swift */,
 				BB0019 /* ErrorHandling.swift */,
 			);
 			path = Utilities;
@@ -236,6 +248,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				AA0001 /* SplitLensApp.swift in Sources */,
+				F3B22AA22EDAB39D00E8E642 /* ValidationHelper.swift in Sources */,
 				AA0002 /* ContentView.swift in Sources */,
 				AA0005 /* ReceiptItem.swift in Sources */,
 				AA0006 /* ReceiptSession.swift in Sources */,
@@ -244,14 +257,17 @@
 				AA0009 /* SupabaseService.swift in Sources */,
 				AA0010 /* BillSplitEngine.swift in Sources */,
 				AA0011 /* ReportGenerationEngine.swift in Sources */,
+				F3B22AA82EDAB3C700E8E642 /* DoubleExtensions.swift in Sources */,
 				AA0012 /* DependencyContainer.swift in Sources */,
 				AA0013 /* ImageUploadViewModel.swift in Sources */,
 				AA0014 /* ItemsEditorViewModel.swift in Sources */,
 				AA0015 /* ParticipantsViewModel.swift in Sources */,
 				AA0016 /* AssignmentViewModel.swift in Sources */,
+				F3B22AA42EDAB3A400E8E642 /* Constants.swift in Sources */,
 				AA0017 /* ReportViewModel.swift in Sources */,
 				AA0018 /* HistoryViewModel.swift in Sources */,
 				AA0019 /* ErrorHandling.swift in Sources */,
+				F3B22AA62EDAB3AD00E8E642 /* CurrencyFormatter.swift in Sources */,
 				AA0020 /* SupabaseConfig.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

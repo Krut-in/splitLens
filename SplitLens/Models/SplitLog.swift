@@ -47,11 +47,7 @@ struct SplitLog: Identifiable, Codable, Equatable {
     
     /// Formatted amount string (e.g., "$12.50")
     var formattedAmount: String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = "USD"
-        formatter.maximumFractionDigits = 2
-        return formatter.string(from: NSNumber(value: amount)) ?? "$0.00"
+        CurrencyFormatter.shared.format(amount)
     }
     
     /// Summary text for display (e.g., "Alice → Bob: $12.50")

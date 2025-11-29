@@ -68,12 +68,12 @@ struct ReceiptItem: Identifiable, Codable, Equatable {
     
     /// Formatted total price string (e.g., "$12.50")
     var formattedTotalPrice: String {
-        formatCurrency(totalPrice)
+        CurrencyFormatter.shared.format(totalPrice)
     }
     
     /// Formatted price per person (e.g., "$6.25 each")
     var formattedPricePerPerson: String {
-        let amount = formatCurrency(pricePerPerson)
+        let amount = CurrencyFormatter.shared.format(pricePerPerson)
         return sharingCount > 1 ? "\(amount) each" : amount
     }
     
@@ -112,17 +112,6 @@ struct ReceiptItem: Identifiable, Codable, Equatable {
     /// Checks if this item is assigned to a specific participant
     func isAssigned(to participant: String) -> Bool {
         assignedTo.contains(participant)
-    }
-    
-    // MARK: - Helper Methods
-    
-    /// Formats a currency value to string with $ symbol
-    private func formatCurrency(_ value: Double) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = "USD"
-        formatter.maximumFractionDigits = 2
-        return formatter.string(from: NSNumber(value: value)) ?? "$0.00"
     }
 }
 

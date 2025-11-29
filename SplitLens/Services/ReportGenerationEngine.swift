@@ -19,6 +19,12 @@ protocol ReportGenerationEngineProtocol {
     
     /// Generates a summary suitable for sharing
     func generateShareableSummary(for session: ReceiptSession) -> String
+    
+    /// Generates CSV format for spreadsheet import
+    func generateCSV(for session: ReceiptSession) -> String
+    
+    /// Generates JSON format for API integration
+    func generateJSON(for session: ReceiptSession) throws -> Data
 }
 
 // MARK: - Report Generation Engine
@@ -165,20 +171,12 @@ final class ReportGenerationEngine: ReportGenerationEngineProtocol {
     // MARK: - Helper Methods
     
     private func formatCurrency(_ value: Double) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = "USD"
-        formatter.maximumFractionDigits = 2
-        return formatter.string(from: NSNumber(value: value)) ?? "$0.00"
+        CurrencyFormatter.shared.format(value)
     }
-}
-
-// MARK: - Future Export Formats
-
-/// Extension for future export capabilities (CSV, PDF, etc.)
-extension ReportGenerationEngine {
     
-    /// Generates CSV format for spreadsheet import (future implementation)
+    // MARK: - Export Formats
+    
+    /// Generates CSV format for spreadsheet import
     func generateCSV(for session: ReceiptSession) -> String {
         var csv = "Item,Quantity,Price,Total,Assigned To\n"
         
@@ -190,7 +188,7 @@ extension ReportGenerationEngine {
         return csv
     }
     
-    /// Generates JSON format for API integration (future implementation)
+    /// Generates JSON format for API integration
     func generateJSON(for session: ReceiptSession) throws -> Data {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]

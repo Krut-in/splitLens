@@ -97,7 +97,7 @@ struct ReceiptSession: Identifiable, Codable, Equatable {
     
     /// Formatted total amount string
     var formattedTotal: String {
-        formatCurrency(totalAmount)
+        CurrencyFormatter.shared.format(totalAmount)
     }
     
     /// Formatted creation date string
@@ -179,15 +179,6 @@ struct ReceiptSession: Identifiable, Codable, Equatable {
     /// Gets all splits involving a specific participant
     func splits(for participant: String) -> [SplitLog] {
         computedSplits.filter { $0.from == participant || $0.to == participant }
-    }
-    
-    /// Formats a currency value to string
-    private func formatCurrency(_ value: Double) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = "USD"
-        formatter.maximumFractionDigits = 2
-        return formatter.string(from: NSNumber(value: value)) ?? "$0.00"
     }
 }
 

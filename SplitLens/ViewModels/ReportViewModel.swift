@@ -160,24 +160,14 @@ final class ReportViewModel: ObservableObject {
     
     // MARK: - Export
     
-    /// Exports as CSV (future implementation)
-    func exportAsCSV() -> String {
-        // These methods are in the concrete class extension, not the protocol
-        guard let concreteEngine = reportEngine as? ReportGenerationEngine else {
-            return "CSV export not available"
-        }
-        return concreteEngine.generateCSV(for: session)
+    /// Exports as CSV
+    func exportAsCSV() -> String {        return reportEngine.generateCSV(for: session)
     }
     
     /// Exports as JSON
     func exportAsJSON() -> String? {
-        // These methods are in the concrete class extension, not the protocol
-        guard let concreteEngine = reportEngine as? ReportGenerationEngine else {
-            return nil
-        }
-        
         do {
-            let data = try concreteEngine.generateJSON(for: session)
+            let data = try reportEngine.generateJSON(for: session)
             return String(data: data, encoding: .utf8)
         } catch {
             ErrorHandler.shared.log(error, context: "ReportViewModel.exportAsJSON")
@@ -185,25 +175,15 @@ final class ReportViewModel: ObservableObject {
         }
     }
     
-    // MARK: - Helpers
-    
     /// Gets total owed by a participant
     func totalOwed(by participant: String) -> String {
         let amount = session.totalOwed(by: participant)
-        return formatCurrency(amount)
+        return CurrencyFormatter.shared.format(amount)
     }
     
     /// Gets splits for a specific participant
     func splitsFor(participant: String) -> [SplitLog] {
         session.splits(for: participant)
-    }
-    
-    private func formatCurrency(_ value: Double) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = "USD"
-        formatter.maximumFractionDigits = 2
-        return formatter.string(from: NSNumber(value: value)) ?? "$0.00"
     }
 }
 
