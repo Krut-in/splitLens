@@ -203,6 +203,9 @@ enum ValidationError: AppError {
 enum BillSplitError: AppError {
     case noParticipants
     case noItems
+    case invalidPayer(String)
+    case totalsDoNotMatch(calculated: Double, expected: Double, variance: Double)
+    case noAssignedItems
     case calculationFailed(String)
     case roundingError
     case invalidConfiguration
@@ -213,8 +216,14 @@ enum BillSplitError: AppError {
             return "Cannot calculate splits without participants."
         case .noItems:
             return "Cannot calculate splits without items."
-        case .calculationFailed:
-            return "Failed to calculate bill splits. Please verify your data."
+        case .invalidPayer(let payer):
+            return "Payer '\(payer)' must be in the participants list."
+        case .totalsDoNotMatch(let calculated, let expected, let variance):
+            return String(format: "Calculated total ($%.2f) doesn't match entered total ($%.2f). Variance: %.2f%%", calculated, expected, variance)
+        case .noAssignedItems:
+            return "No items have been assigned to participants."
+        case .calculationFailed(let details):
+            return "Failed to calculate bill splits: \(details)"
         case .roundingError:
             return "Rounding error in calculations. Please review the amounts."
         case .invalidConfiguration:
@@ -228,6 +237,12 @@ enum BillSplitError: AppError {
             return "Empty participants array in split calculation"
         case .noItems:
             return "Empty items array in split calculation"
+        case .invalidPayer(let payer):
+            return "Payer '\(payer)' not found in participants array"
+        case .totalsDoNotMatch(let calculated, let expected, let variance):
+            return "Total mismatch: calculated=\(calculated), expected=\(expected), variance=\(variance)%"
+        case .noAssignedItems:
+            return "All items have empty assignedTo arrays"
         case .calculationFailed(let details):
             return "Split calculation failed: \(details)"
         case .roundingError:
@@ -239,6 +254,7 @@ enum BillSplitError: AppError {
     
     var errorDescription: String? { userMessage }
 }
+
 
 // MARK: - Storage Errors
 

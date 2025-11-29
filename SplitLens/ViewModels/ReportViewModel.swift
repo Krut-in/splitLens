@@ -28,6 +28,9 @@ final class ReportViewModel: ObservableObject {
     /// Error message
     @Published var errorMessage: String?
     
+    /// Warnings from bill split calculation
+    @Published var warnings: [BillSplitWarning] = []
+    
     /// Whether to show share sheet
     @Published var showShareSheet = false
     
@@ -68,11 +71,29 @@ final class ReportViewModel: ObservableObject {
     
     /// Computes the bill splits
     func computeSplits() {
-        let splits = billSplitEngine.computeSplits(session: session)
-        session.computedSplits = splits
-        
-        // Generate report text
-        regenerateReport()
+        do {
+            let result = try billSplitEngine.computeSplits(session: session)
+            session.computedSplits = result.splits
+            warnings = result.warnings
+            
+            // Clear any previous errors
+            errorMessage = nil
+            
+            // Generate report text
+            regenerateReport()
+            
+        } catch let error as BillSplitError {
+            ErrorHandler.shared.log(error, context: "ReportViewModel.computeSplits")
+            errorMessage = error.localizedDescription
+            session.computedSplits = []
+            warnings = []
+            
+        } catch {
+            ErrorHandler.shared.log(error, context: "ReportViewModel.computeSplits")
+            errorMessage = "Failed to calculate bill splits"
+            session.computedSplits = []
+            warnings = []
+        }
     }
     
     /// Regenerates the report text

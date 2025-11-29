@@ -7,78 +7,168 @@
 
 import Foundation
 
+// MARK: - Bill Split Warning Types
+
+/// Warnings that may occur during split calculation (non-fatal)
+struct BillSplitWarning {
+    enum WarningType {
+        case totalVariance(calculated: Double, expected: Double, variance: Double)
+        case unassignedItems(count: Int)
+        case singleParticipant
+    }
+    
+    let type: WarningType
+    
+    var message: String {
+        switch type {
+        case .totalVariance(let calculated, let expected, let variance):
+            return String(format: "⚠️ Total mismatch: Calculated $%.2f vs Entered $%.2f (Variance: %.2f%%). Please verify manually.", calculated, expected, variance)
+        case .unassignedItems(let count):
+            return "⚠️ \(count) item(s) not assigned to any participant"
+        case .singleParticipant:
+            return "⚠️ Only one participant - no splits necessary"
+        }
+    }
+}
+
+// MARK: - Bill Split Result
+
+/// Result of a bill split computation including any warnings
+struct BillSplitResult {
+    let splits: [SplitLog]
+    let warnings: [BillSplitWarning]
+    
+    var hasWarnings: Bool {
+        !warnings.isEmpty
+    }
+}
+
 // MARK: - Bill Split Engine Protocol
 
 /// Protocol defining bill splitting calculation capabilities
 protocol BillSplitEngineProtocol {
     /// Computes split logs showing who owes whom
     /// - Parameter session: The receipt session to calculate splits for
-    /// - Returns: Array of split logs indicating payment transfers
+    /// - Returns: Result containing splits and any warnings
     /// - Throws: BillSplitError if calculation fails
-    func computeSplits(session: ReceiptSession) -> [SplitLog]
+    func computeSplits(session: ReceiptSession) throws -> BillSplitResult
 }
 
-// MARK: - Bill Split Engine Implementation
 
 /// Implements bill splitting logic with support for shared items
 final class BillSplitEngine: BillSplitEngineProtocol {
     
     /// Computes splits for a session using the "payer reimbursement" method
     ///
-    /// Algorithm:
-    /// 1. Calculate what each person owes based on their assigned items
-    /// 2. The payer already paid the full amount
-    /// 3. Create split logs for non-payers to reimburse the payer
-    /// 4. Optimize by canceling out debts where possible
-    func computeSplits(session: ReceiptSession) -> [SplitLog] {
-        guard !session.participants.isEmpty else { return [] }
-        guard !session.items.isEmpty else { return [] }
+    /// **Algorithm:**
+    /// 1. Validate session data (participants, items, payer)
+    /// 2. Calculate per-person costs for each item:
+    ///    - If assigned to "All": divide equally among ALL participants
+    ///    - Otherwise: divide only among assigned people
+    /// 3. Handle quantities (totalPrice = price × quantity, then split)
+    /// 4. Validate calculated total matches entered total (warn if > 1% variance)
+    /// 5. Generate settlement logs (everyone pays the payer)
+    /// 6. Filter out insignificant amounts (< $0.01)
+    ///
+    /// - Parameter session: The receipt session to calculate splits for
+    /// - Returns: BillSplitResult with splits and any warnings
+    /// - Throws: BillSplitError for critical validation failures
+    func computeSplits(session: ReceiptSession) throws -> BillSplitResult {
+        var warnings: [BillSplitWarning] = []
         
-        // Step 1: Calculate what each participant owes
-        var balances: [String: Double] = [:]
+        // VALIDATION: Check basic requirements
+        guard !session.participants.isEmpty else {
+            throw BillSplitError.noParticipants
+        }
         
+        guard !session.items.isEmpty else {
+            throw BillSplitError.noItems
+        }
+        
+        guard session.participants.contains(session.paidBy) else {
+            throw BillSplitError.invalidPayer(session.paidBy)
+        }
+        
+        // Check for unassigned items (warning only)
+        let unassignedCount = session.items.filter { !$0.isAssigned }.count
+        if unassignedCount > 0 {
+            warnings.append(BillSplitWarning(type: .unassignedItems(count: unassignedCount)))
+        }
+        
+        // Edge case: Single participant
+        if session.participants.count == 1 {
+            warnings.append(BillSplitWarning(type: .singleParticipant))
+            return BillSplitResult(splits: [], warnings: warnings)
+        }
+        
+        // STEP 1: Calculate what each person owes based on their assigned items
+        var personTotals: [String: Double] = [:]
+        
+        // Initialize all participants to $0.00
         for participant in session.participants {
-            balances[participant] = 0.0
+            personTotals[participant] = 0.0
         }
         
         // Calculate individual shares
         for item in session.items {
             guard item.isAssigned else { continue }
             
-            let pricePerPerson = item.pricePerPerson
+            // Handle quantity: total item cost = price × quantity
+            let totalItemCost = item.totalPrice
             
-            for person in item.assignedTo {
-                balances[person, default: 0.0] += pricePerPerson
+            // Check if assigned to "All"
+            if item.assignedTo.contains("All") {
+                // Divide equally among ALL participants
+                let costPerPerson = totalItemCost / Double(session.participants.count)
+                for participant in session.participants {
+                    personTotals[participant, default: 0.0] += costPerPerson
+                }
+            } else {
+                // Divide only among assigned people
+                let assignedCount = item.assignedTo.count
+                guard assignedCount > 0 else { continue }
+                
+                let costPerPerson = totalItemCost / Double(assignedCount)
+                for person in item.assignedTo {
+                    personTotals[person, default: 0.0] += costPerPerson
+                }
             }
         }
         
-        // Step 2: Adjust balances (payer has negative balance equal to total)
-        let payer = session.paidBy
-        let totalPaid = session.totalAmount
+        // STEP 2: Validate totals (allow 1% variance, show warning)
+        let calculatedTotal = personTotals.values.reduce(0.0, +)
+        let difference = abs(calculatedTotal - session.totalAmount)
+        let variancePercent = (difference / session.totalAmount) * 100.0
         
-        // Payer already paid, so they have a credit
-        balances[payer, default: 0.0] -= totalPaid
+        if variancePercent > 1.0 {
+            warnings.append(BillSplitWarning(
+                type: .totalVariance(
+                    calculated: calculatedTotal,
+                    expected: session.totalAmount,
+                    variance: variancePercent
+                )
+            ))
+        }
         
-        // Step 3: Generate split logs
+        // STEP 3: Generate settlement logs
+        // Everyone owes the payer (simplified debt model)
         var splits: [SplitLog] = []
+        let payer = session.paidBy
         
-        for (person, balance) in balances {
-            // Positive balance = owes money
-            // Negative balance = is owed money
+        for participant in session.participants where participant != payer {
+            let amountOwed = personTotals[participant] ?? 0.0
             
-            if person == payer {
-                continue // Skip the payer
-            }
-            
-            if balance > 0.01 { // Only create split if meaningful amount
+            // Filter out insignificant amounts (< $0.01)
+            if amountOwed > 0.01 {
                 let split = SplitLog(
-                    from: person,
+                    from: participant,
                     to: payer,
-                    amount: roundToTwoDecimals(balance),
-                    explanation: generateExplanation(
-                        for: person,
-                        items: session.items(assignedTo: person),
-                        totalOwed: balance
+                    amount: (amountOwed * 100).rounded() / 100,
+                    explanation: generateDetailedExplanation(
+                        for: participant,
+                        items: session.items,
+                        allParticipants: session.participants,
+                        totalOwed: amountOwed
                     )
                 )
                 splits.append(split)
@@ -88,41 +178,81 @@ final class BillSplitEngine: BillSplitEngineProtocol {
         // Sort by amount (largest first)
         splits.sort { $0.amount > $1.amount }
         
-        return splits
+        return BillSplitResult(splits: splits, warnings: warnings)
     }
     
     // MARK: - Helper Methods
     
-    /// Rounds a value to 2 decimal places
-    private func roundToTwoDecimals(_ value: Double) -> Double {
-        (value * 100).rounded() / 100
-    }
-    
-    /// Generates a human-readable explanation for a split
-    private func generateExplanation(
+    /// Generates a human-readable explanation for a participant's split
+    ///
+    /// Shows detailed breakdown of each item with division logic:
+    /// - "Pizza: $24.00 ÷ 3 = $8.00"
+    /// - "Tax (All): $5.00 ÷ 4 = $1.25"
+    ///
+    /// - Parameters:
+    ///   - person: The participant to generate explanation for
+    ///   - items: All items in the session
+    ///   - allParticipants: All participants in the session
+    ///   - totalOwed: Total amount this person owes
+    /// - Returns: Formatted explanation string
+    private func generateDetailedExplanation(
         for person: String,
         items: [ReceiptItem],
+        allParticipants: [String],
         totalOwed: Double
     ) -> String {
-        guard !items.isEmpty else {
+        // Filter items this person is involved with
+        let personItems = items.filter { item in
+            item.assignedTo.contains(person) || item.assignedTo.contains("All")
+        }
+        
+        guard !personItems.isEmpty else {
             return "Your share of the bill"
         }
         
-        if items.count == 1 {
-            let item = items[0]
-            if item.sharingCount > 1 {
-                return "Your share of \(item.name) (split \(item.sharingCount) ways)"
-            } else {
-                return item.name
+        var lines: [String] = []
+        
+        for item in personItems {
+            let totalItemCost = item.totalPrice
+            
+            if item.assignedTo.contains("All") {
+                // Item assigned to "All" participants
+                let count = allParticipants.count
+                let share = totalItemCost / Double(count)
+                
+                if count == 1 {
+                    lines.append(String(format: "%@ (All): $%.2f", item.name, totalItemCost))
+                } else {
+                    lines.append(String(format: "%@ (All): $%.2f ÷ %d = $%.2f", item.name, totalItemCost, count, share))
+                }
+            } else if item.assignedTo.contains(person) {
+                // Item assigned to specific people
+                let count = item.assignedTo.count
+                let share = totalItemCost / Double(count)
+                
+                if count == 1 {
+                    // Person ordered this item alone
+                    if item.quantity > 1 {
+                        lines.append(String(format: "%@ (×%d): $%.2f", item.name, item.quantity, totalItemCost))
+                    } else {
+                        lines.append(String(format: "%@: $%.2f", item.name, totalItemCost))
+                    }
+                } else {
+                    // Item split among multiple people
+                    if item.quantity > 1 {
+                        lines.append(String(format: "%@ (×%d): $%.2f ÷ %d = $%.2f", item.name, item.quantity, totalItemCost, count, share))
+                    } else {
+                        lines.append(String(format: "%@: $%.2f ÷ %d = $%.2f", item.name, totalItemCost, count, share))
+                    }
+                }
             }
         }
         
-        if items.count <= 3 {
-            let itemNames = items.map { $0.name }.joined(separator: ", ")
-            return "Your share: \(itemNames)"
+        if lines.isEmpty {
+            return String(format: "Your share: $%.2f", totalOwed)
         }
         
-        return "Your share: \(items.count) items"
+        return lines.joined(separator: "\n")
     }
 }
 
@@ -155,10 +285,10 @@ final class AdvancedBillSplitEngine: BillSplitEngineProtocol {
     var taxDistribution: TaxDistribution = .proportional
     var tipDistribution: TipDistribution = .proportional
     
-    func computeSplits(session: ReceiptSession) -> [SplitLog] {
+    func computeSplits(session: ReceiptSession) throws -> BillSplitResult {
         // For now, use basic engine
         // Future: Add tax/tip distribution logic here
-        return basicEngine.computeSplits(session: session)
+        return try basicEngine.computeSplits(session: session)
     }
     
     // Future methods:
@@ -166,3 +296,4 @@ final class AdvancedBillSplitEngine: BillSplitEngineProtocol {
     // - func distributeTip(amount: Double, among participants: [String])
     // - func applyDiscount(code: String, to session: ReceiptSession)
 }
+
