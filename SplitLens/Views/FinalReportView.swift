@@ -209,7 +209,7 @@ struct FinalReportView: View {
                 title: "Share Report",
                 color: .purple
             ) {
-                shareText =viewModel.getShareableSummary()
+                shareText = viewModel.getShareableSummary()
                 showShareSheet = true
             }
             
