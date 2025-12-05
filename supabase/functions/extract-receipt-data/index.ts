@@ -2,7 +2,7 @@
 // Deploy this to: https://bnkpaikzslmwdcdmonoa.supabase.co/functions/v1/extract-receipt-data
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { decode as decodeBase64, encode as encodeBase64 } from "https://deno.land/std@0.168.0/encoding/base64.ts"
 
 // CORS headers for cross-origin  requests
 const corsHeaders = {
@@ -28,7 +28,7 @@ serve(async (req) => {
         }
 
         // Convert base64 to binary
-        const imageData = Deno.decodeBase64(image)
+        const imageData = decodeBase64(image)
 
         // Call Google Cloud Vision API (or other OCR service)
         // For this example, we'll use a mock response
@@ -73,7 +73,7 @@ async function performOCR(imageData: Uint8Array): Promise<string> {
 
 // Google Cloud Vision API Integration
 async function callGoogleVisionAPI(imageData: Uint8Array, apiKey: string): Promise<string> {
-    const base64Image = Deno.encodeBase64(imageData)
+    const base64Image = encodeBase64(imageData)
 
     const response = await fetch(
         `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`,

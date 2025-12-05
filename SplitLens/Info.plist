@@ -58,5 +58,11 @@
 	<string>SplitLens needs access to your photo library to select receipt images for processing.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>SplitLens needs permission to save receipt images to your photo library.</string>
+	<key>SUPABASE_PROJECT_URL</key>
+	<string>$(SUPABASE_PROJECT_URL)</string>
+	<key>SUPABASE_API_KEY</key>
+	<string>$(SUPABASE_API_KEY)</string>
+	<key>SUPABASE_OCR_FUNCTION_URL</key>
+	<string>$(SUPABASE_OCR_FUNCTION_URL)</string>
 </dict>
 </plist>

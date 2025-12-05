@@ -82,7 +82,7 @@
 		BB0016 /* AssignmentViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssignmentViewModel.swift; sourceTree = "<group>"; };
 		BB0017 /* ReportViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportViewModel.swift; sourceTree = "<group>"; };
 		BB0018 /* HistoryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryViewModel.swift; sourceTree = "<group>"; };
-		BB0020 /* SupabaseConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseConfig.swift; sourceTree = "<group>"; };
+		BB0020 /* SupabaseConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseConfig.swift; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.xcconfig; };
 		BB0021 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		CC0001 /* SplitLens.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SplitLens.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F348DE0D2EDAB9A8003D37D7 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
@@ -111,6 +111,7 @@
 		F348DE372EDAC0F7003D37D7 /* SpendingPieChart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpendingPieChart.swift; sourceTree = "<group>"; };
 		F348DE382EDAC0F7003D37D7 /* SuccessToast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuccessToast.swift; sourceTree = "<group>"; };
 		F348DE3F2EDAC20E003D37D7 /* Route.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Route.swift; sourceTree = "<group>"; };
+		F36026C02EE32D4B00BFC589 /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
 		F374AD9A2EDAB88F00DF0376 /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
 		F374AD9B2EDAB88F00DF0376 /* ErrorBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorBanner.swift; sourceTree = "<group>"; };
 		F374AD9C2EDAB88F00DF0376 /* LoadingOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadingOverlay.swift; sourceTree = "<group>"; };
@@ -139,6 +140,7 @@
 				EE0002 /* SplitLens */,
 				F348DE402EDAC20E003D37D7 /* Navigation */,
 				EE0003 /* Products */,
+				F36026C02EE32D4B00BFC589 /* Config.xcconfig */,
 			);
 			sourceTree = "<group>";
 		};
@@ -413,6 +415,7 @@
 /* Begin XCBuildConfiguration section */
 		HH0001 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = F36026C02EE32D4B00BFC589 /* Config.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -476,6 +479,7 @@
 		};
 		HH0002 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = F36026C02EE32D4B00BFC589 /* Config.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;

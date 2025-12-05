@@ -26,11 +26,11 @@ struct SupabaseConfig {
     
     // MARK: - Default Configuration
     
-    /// Default configuration (reads from environment variables set via Config.xcconfig)
+    /// Default configuration (reads from Info.plist values set via Config.xcconfig)
     static let `default` = SupabaseConfig(
-        projectURL: ProcessInfo.processInfo.environment["SUPABASE_PROJECT_URL"] ?? "",
-        apiKey: ProcessInfo.processInfo.environment["SUPABASE_API_KEY"] ?? "",
-        ocrFunctionURL: ProcessInfo.processInfo.environment["SUPABASE_OCR_FUNCTION_URL"] ?? "",
+        projectURL: Bundle.main.infoDictionary?["SUPABASE_PROJECT_URL"] as? String ?? "",
+        apiKey: Bundle.main.infoDictionary?["SUPABASE_API_KEY"] as? String ?? "",
+        ocrFunctionURL: Bundle.main.infoDictionary?["SUPABASE_OCR_FUNCTION_URL"] as? String ?? "",
         useMockServices: false // Set to true to use mock services for development
     )
     
