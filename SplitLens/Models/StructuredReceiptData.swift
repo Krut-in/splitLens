@@ -45,7 +45,8 @@ struct ExtractedItem: Codable {
     /// Quantity purchased
     let quantity: Int
     
-    /// Price per unit (or total price if quantity is 1)
+    /// Total price for this line item (as shown on receipt, NOT per-unit)
+    /// Example: If "2 x $7.05 = $14.10", this would be 14.10
     let price: Double
     
     /// Convert to ReceiptItem for use in the app
@@ -111,7 +112,8 @@ extension StructuredReceiptData {
             return total
         }
         
-        let itemsTotal = items.reduce(0.0) { $0 + (Double($1.quantity) * $1.price) }
+        // price is already the line total (not per-unit), so just sum them
+        let itemsTotal = items.reduce(0.0) { $0 + $1.price }
         let feesTotal = fees?.reduce(0.0) { $0 + $1.amount } ?? 0
         return itemsTotal + feesTotal
     }

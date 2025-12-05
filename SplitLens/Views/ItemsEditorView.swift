@@ -2,7 +2,7 @@
 //  ItemsEditorView.swift
 //  SplitLens
 //
-//  Edit receipt items with liquid glass design
+//  Edit receipt items with improved UX design
 //
 
 import SwiftUI
@@ -34,26 +34,20 @@ struct ItemsEditorView: View {
     // MARK: - Body
     
     var body: some View {
-        ZStack {
-            // Background
-            Color(.systemGroupedBackground)
-                .ignoresSafeArea()
+        VStack(spacing: 0) {
+            // Fixed header section
+            headerSection
             
-            VStack(spacing: 0) {
-                // Total summary card
-                totalSummaryCard
-                    .padding()
-                
-                // Items list
-                if viewModel.items.isEmpty {
-                    emptyStateView
-                } else {
-                    itemsList
-                }
+            // Scrollable items list
+            if viewModel.items.isEmpty {
+                emptyStateView
+            } else {
+                itemsScrollView
             }
         }
+        .background(Color(.systemGroupedBackground))
         .navigationTitle("Edit Items")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 if viewModel.isValid {
@@ -61,6 +55,7 @@ struct ItemsEditorView: View {
                         navigationPath.append(Route.participantsEntry(viewModel.items))
                     }
                     .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(.green)
                 }
             }
             
@@ -78,32 +73,90 @@ struct ItemsEditorView: View {
         }
     }
     
-    // MARK: - Sections
+    // MARK: - Header Section
     
-    private var totalSummaryCard: some View {
-        VStack(spacing: 12) {
+    private var headerSection: some View {
+        VStack(spacing: 16) {
+            // Total summary
             HStack {
-                SummaryCard(
-                    title: "Items Total",
-                    value: viewModel.formattedCalculatedTotal,
-                    icon: "cart.fill",
-                    color: .blue
-                )
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Items Total")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.secondary)
+                    
+                    Text(viewModel.formattedCalculatedTotal)
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .foregroundStyle(.primary)
+                }
                 
-                if let warning = viewModel.discrepancyWarning {
-                    VStack(spacing: 8) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.orange)
-                        Text(warning)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                    }
-                    .frame(maxWidth: 100)
+                Spacer()
+                
+                // Item count badge
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("\(viewModel.items.count)")
+                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .foregroundStyle(.green)
+                    
+                    Text(viewModel.items.count == 1 ? "item" : "items")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.secondary)
                 }
             }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(.ultraThinMaterial)
+            )
+            .padding(.horizontal, 16)
+            
+            // Warning if applicable
+            if let warning = viewModel.discrepancyWarning {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                    Text(warning)
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(.orange.opacity(0.1))
+                )
+                .padding(.horizontal, 16)
+            }
         }
+        .padding(.top, 16)
+        .padding(.bottom, 8)
+        .background(Color(.systemGroupedBackground))
     }
+    
+    // MARK: - Items List
+    
+    private var itemsScrollView: some View {
+        ScrollView {
+            LazyVStack(spacing: 12) {
+                ForEach($viewModel.items) { $item in
+                    ItemRowCard(
+                        item: $item,
+                        onDelete: {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                                viewModel.deleteItem(item)
+                            }
+                        }
+                    )
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .padding(.bottom, 80) // Extra space for bottom toolbar
+        }
+        .scrollIndicators(.hidden)
+    }
+    
+    // MARK: - Empty State
     
     private var emptyStateView: some View {
         VStack {
@@ -118,96 +171,200 @@ struct ItemsEditorView: View {
             Spacer()
         }
     }
-    
-    private var itemsList: some View {
-        List {
-            ForEach($viewModel.items) { $item in
-                ItemRow(
-                    item: $item,
-                    onDelete: {
-                        viewModel.deleteItem(item)
-                    }
-                )
-                .transition(.asymmetric(
-                    insertion: .scale.combined(with: .opacity),
-                    removal: .move(edge: .leading).combined(with: .opacity)
-                ))
-            }
-            .onDelete { indexSet in
-                viewModel.deleteItems(at: indexSet)
-            }
-        }
-        .listStyle(.insetGrouped)
-        .animation(.spring(response: 0.4, dampingFraction: 0.75), value: viewModel.items.count)
-    }
 }
 
-// MARK: - Item Row Component
+// MARK: - Item Row Card Component
 
-struct ItemRow: View {
+struct ItemRowCard: View {
     @Binding var item: ReceiptItem
     let onDelete: () -> Void
     
-    @FocusState private var isFocused: Bool
+    @State private var isEditing = false
+    @State private var editedName: String = ""
+    @State private var editedPrice: String = ""
+    @FocusState private var focusedField: Field?
+    
+    private enum Field: Hashable {
+        case name, price
+    }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Name
-            HStack {
-                Text("Name")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 70, alignment: .leading)
-                
-                TextField("Item name", text: $item.name)
-                    .textFieldStyle(.roundedBorder)
-                    .focused($isFocused)
-            }
-            
-            // Quantity and Price
-            HStack(spacing: 16) {
+        VStack(spacing: 0) {
+            // Main content
+            VStack(alignment: .leading, spacing: 12) {
+                // Item name row
                 HStack {
-                    Text("Qty")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 70, alignment: .leading)
+                    if isEditing {
+                        TextField("Item name", text: $editedName)
+                            .font(.system(size: 16, weight: .semibold))
+                            .textFieldStyle(.plain)
+                            .focused($focusedField, equals: .name)
+                            .submitLabel(.done)
+                            .onSubmit { saveChanges() }
+                    } else {
+                        Text(item.name)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.primary)
+                            .lineLimit(2)
+                    }
                     
-                    Stepper("\(item.quantity)", value: $item.quantity, in: 1...99)
-                        .labelsHidden()
-                        .frame(maxWidth: .infinity)
+                    Spacer()
+                    
+                    // Edit/Save button
+                    Button(action: {
+                        if isEditing {
+                            saveChanges()
+                        } else {
+                            startEditing()
+                        }
+                    }) {
+                        Image(systemName: isEditing ? "checkmark.circle.fill" : "pencil.circle")
+                            .font(.system(size: 22))
+                            .foregroundStyle(isEditing ? .green : .secondary)
+                    }
+                    .buttonStyle(.plain)
                 }
                 
-                HStack {
-                    Text("Price")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 50, alignment: .leading)
+                Divider()
+                
+                // Quantity and price row
+                HStack(alignment: .center, spacing: 16) {
+                    // Quantity controls
+                    HStack(spacing: 8) {
+                        Text("Qty")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(.secondary)
+                        
+                        HStack(spacing: 0) {
+                            Button(action: {
+                                if item.quantity > 1 {
+                                    // Keep unit price, reduce quantity
+                                    let unitPrice = item.unitPrice
+                                    item.quantity -= 1
+                                    item.price = unitPrice * Double(item.quantity)
+                                    hapticFeedback(.light)
+                                }
+                            }) {
+                                Image(systemName: "minus")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .frame(width: 32, height: 32)
+                                    .foregroundStyle(item.quantity > 1 ? .primary : .tertiary)
+                            }
+                            .disabled(item.quantity <= 1)
+                            
+                            Text("\(item.quantity)")
+                                .font(.system(size: 16, weight: .bold, design: .rounded))
+                                .frame(minWidth: 32)
+                            
+                            Button(action: {
+                                // Keep unit price, increase quantity
+                                let unitPrice = item.unitPrice
+                                item.quantity += 1
+                                item.price = unitPrice * Double(item.quantity)
+                                hapticFeedback(.light)
+                            }) {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .frame(width: 32, height: 32)
+                            }
+                        }
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color(.tertiarySystemFill))
+                        )
+                    }
                     
-                    TextField("0.00", value: $item.price, format: .number)
-                        .textFieldStyle(.roundedBorder)
-                        .keyboardType(.decimalPad)
+                    // Unit price display
+                    if item.quantity > 1 {
+                        Text("× \(CurrencyFormatter.shared.format(item.unitPrice))")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    Spacer()
+                    
+                    // Total price
+                    VStack(alignment: .trailing, spacing: 2) {
+                        if isEditing {
+                            HStack(spacing: 4) {
+                                Text("$")
+                                    .font(.system(size: 18, weight: .bold))
+                                    .foregroundStyle(.green)
+                                TextField("0.00", text: $editedPrice)
+                                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                                    .foregroundStyle(.green)
+                                    .keyboardType(.decimalPad)
+                                    .multilineTextAlignment(.trailing)
+                                    .frame(maxWidth: 80)
+                                    .focused($focusedField, equals: .price)
+                            }
+                        } else {
+                            Text(CurrencyFormatter.shared.format(item.totalPrice))
+                                .font(.system(size: 20, weight: .bold, design: .rounded))
+                                .foregroundStyle(.green)
+                        }
+                        
+                        Text("Total")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.tertiary)
+                    }
                 }
             }
-            
-            // Total
-            HStack {
-                Text("Total")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                
-                Spacer()
-                
-                Text(CurrencyFormatter.shared.format(item.totalPrice))
-                    .font(.system(size: 18, weight: .bold, design: .rounded))
-                    .foregroundStyle(.green)
+            .padding(16)
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color(.secondarySystemGroupedBackground))
+                .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
+        )
+        .contentShape(Rectangle())
+        .contextMenu {
+            Button(role: .destructive) {
+                onDelete()
+            } label: {
+                Label("Delete Item", systemImage: "trash")
             }
         }
-        .padding(.vertical, 8)
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             Button(role: .destructive, action: onDelete) {
                 Label("Delete", systemImage: "trash")
             }
         }
+    }
+    
+    // MARK: - Helpers
+    
+    private func startEditing() {
+        editedName = item.name
+        editedPrice = String(format: "%.2f", item.price)
+        withAnimation(.easeInOut(duration: 0.2)) {
+            isEditing = true
+        }
+        focusedField = .name
+        hapticFeedback(.light)
+    }
+    
+    private func saveChanges() {
+        // Validate and save
+        let trimmedName = editedName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedName.isEmpty {
+            item.name = trimmedName
+        }
+        
+        if let newPrice = Double(editedPrice.replacingOccurrences(of: ",", with: ".")), newPrice >= 0 {
+            item.price = newPrice
+        }
+        
+        withAnimation(.easeInOut(duration: 0.2)) {
+            isEditing = false
+        }
+        focusedField = nil
+        hapticFeedback(.medium)
+    }
+    
+    private func hapticFeedback(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {
+        let generator = UIImpactFeedbackGenerator(style: style)
+        generator.impactOccurred()
     }
 }
 
@@ -226,21 +383,33 @@ struct AddItemSheet: View {
         case name, price
     }
     
+    private var calculatedTotal: Double {
+        price // Price is now the line total
+    }
+    
     var body: some View {
         NavigationStack {
             Form {
-                Section("Item Details") {
+                Section {
                     TextField("Item name", text: $name)
                         .focused($focusedField, equals: .name)
                     
                     Stepper("Quantity: \(quantity)", value: $quantity, in: 1...99)
                     
                     HStack {
-                        Text("Price")
-                        TextField("0.00", value: $price, format: .number)
+                        Text("Total Price")
+                        Spacer()
+                        TextField("0.00", value: $price, format: .currency(code: "USD"))
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
                             .focused($focusedField, equals: .price)
+                    }
+                } header: {
+                    Text("Item Details")
+                } footer: {
+                    if quantity > 1 && price > 0 {
+                        Text("Unit price: \(CurrencyFormatter.shared.format(price / Double(quantity)))")
+                            .foregroundStyle(.secondary)
                     }
                 }
                 
@@ -249,7 +418,7 @@ struct AddItemSheet: View {
                         Text("Total")
                             .fontWeight(.semibold)
                         Spacer()
-                        Text(CurrencyFormatter.shared.format(price * Double(quantity)))
+                        Text(CurrencyFormatter.shared.format(calculatedTotal))
                             .font(.system(.title3, design: .rounded, weight: .bold))
                             .foregroundStyle(.green)
                     }
@@ -266,10 +435,17 @@ struct AddItemSheet: View {
                 
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Add") {
-                        viewModel.addItem(name: name, quantity: quantity, price: price)
+                        // Create item with total price
+                        let newItem = ReceiptItem(
+                            name: name,
+                            quantity: quantity,
+                            price: price
+                        )
+                        viewModel.addItem(newItem)
                         dismiss()
                     }
                     .disabled(name.isEmpty || price <= 0)
+                    .fontWeight(.semibold)
                 }
             }
             .onAppear {

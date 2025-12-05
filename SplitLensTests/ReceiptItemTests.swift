@@ -12,11 +12,32 @@ final class ReceiptItemTests: XCTestCase {
     
     // MARK: - Price Calculation Tests
     
-    func testTotalPriceCalculation() {
-        let item = ReceiptItem(name: "Beer", quantity: 3, price: 5.00, assignedTo: ["Alice"])
+    /// Tests that totalPrice returns the line total (price field) directly
+    /// Since price is now the receipt line total, not per-unit
+    func testTotalPriceReturnsLineTotal() {
+        // Price $15 is the line total for 3 beers
+        let item = ReceiptItem(name: "Beer", quantity: 3, price: 15.00, assignedTo: ["Alice"])
         
-        // totalPrice = quantity × price = 3 × $5 = $15
+        // totalPrice should be the same as price (line total)
         XCTAssertEqual(item.totalPrice, 15.00, accuracy: 0.01)
+    }
+    
+    /// Tests that unitPrice is calculated from line total / quantity
+    func testUnitPriceCalculation() {
+        // Price $15 is the line total for 3 beers at $5 each
+        let item = ReceiptItem(name: "Beer", quantity: 3, price: 15.00, assignedTo: ["Alice"])
+        
+        // unitPrice = $15 / 3 = $5
+        XCTAssertEqual(item.unitPrice, 5.00, accuracy: 0.01)
+    }
+    
+    /// Tests unitPrice when quantity is 1
+    func testUnitPriceWithSingleQuantity() {
+        let item = ReceiptItem(name: "Burger", quantity: 1, price: 12.00, assignedTo: ["Alice"])
+        
+        // unitPrice = $12 / 1 = $12
+        XCTAssertEqual(item.unitPrice, 12.00, accuracy: 0.01)
+        XCTAssertEqual(item.totalPrice, 12.00, accuracy: 0.01)
     }
     
     func testPricePerPersonCalculation_SinglePerson() {
@@ -34,11 +55,14 @@ final class ReceiptItemTests: XCTestCase {
     }
     
     func testPricePerPersonCalculation_WithQuantity() {
-        let item = ReceiptItem(name: "Soda", quantity: 4, price: 2.00, assignedTo: ["Alice", "Bob"])
+        // Line total is $8 for 4 sodas split between 2 people
+        let item = ReceiptItem(name: "Soda", quantity: 4, price: 8.00, assignedTo: ["Alice", "Bob"])
         
-        // totalPrice = 4 × $2 = $8
+        // totalPrice = $8 (line total)
         // pricePerPerson = $8 / 2 = $4
+        XCTAssertEqual(item.totalPrice, 8.00, accuracy: 0.01)
         XCTAssertEqual(item.pricePerPerson, 4.00, accuracy: 0.01)
+        XCTAssertEqual(item.unitPrice, 2.00, accuracy: 0.01) // $8 / 4 = $2 per soda
     }
     
     func testPricePerPersonCalculation_NoAssignment() {
@@ -138,9 +162,9 @@ final class ReceiptItemTests: XCTestCase {
     // MARK: - Formatting Tests
     
     func testFormattedTotalPrice() {
-        let item = ReceiptItem(name: "Item", quantity: 2, price: 5.50, assignedTo: ["Alice"])
+        // Line total is $11.00 for 2 items
+        let item = ReceiptItem(name: "Item", quantity: 2, price: 11.00, assignedTo: ["Alice"])
         
-        // totalPrice = 2 × $5.50 = $11.00
         XCTAssertTrue(item.formattedTotalPrice.contains("11.00"))
         XCTAssertTrue(item.formattedTotalPrice.contains("$"))
     }
@@ -159,5 +183,14 @@ final class ReceiptItemTests: XCTestCase {
         // Should show "$10.00 each"
         XCTAssertTrue(item.formattedPricePerPerson.contains("10.00"))
         XCTAssertTrue(item.formattedPricePerPerson.contains("each"))
+    }
+    
+    // MARK: - Edge Cases
+    
+    func testUnitPriceWithZeroQuantity() {
+        let item = ReceiptItem(name: "Item", quantity: 0, price: 10.00, assignedTo: [])
+        
+        // Should return price when quantity is 0 (edge case)
+        XCTAssertEqual(item.unitPrice, 10.00, accuracy: 0.01)
     }
 }

@@ -93,11 +93,15 @@ async function callGeminiVision(base64Image: string, apiKey: string): Promise<Re
 CRITICAL RULES:
 1. Include ONLY products being purchased (food items, goods, etc.)
 2. Use the FINAL/CURRENT price (ignore crossed-out/original prices)  
-3. EXCLUDE all UI elements (buttons, "Remove", "Save for later", navigation)
-4. EXCLUDE promotional banners and marketing text
-5. EXCLUDE dates, order numbers, and metadata unless it's the store name
-6. Identify delivery fees, service fees, tips separately from items
-7. Identify subtotal and total amounts
+3. The "price" field MUST be the LINE TOTAL shown on the receipt for that item
+   - Example: If receipt shows "2 x $7.05 = $14.10", return price: 14.10 (NOT 7.05)
+   - Example: If receipt shows "SWAD MALAYSIAN  14.10", return price: 14.10
+   - The price is ALWAYS the final amount the customer pays for that line, regardless of quantity
+4. EXCLUDE all UI elements (buttons, "Remove", "Save for later", navigation)
+5. EXCLUDE promotional banners and marketing text
+6. EXCLUDE dates, order numbers, and metadata unless it's the store name
+7. Identify delivery fees, service fees, tips separately from items
+8. Identify subtotal and total amounts
 
 Return ONLY valid JSON in this exact format (no markdown, no explanation):
 {
@@ -107,6 +111,8 @@ Return ONLY valid JSON in this exact format (no markdown, no explanation):
   "total": 29.92,
   "storeName": "Store Name or null"
 }
+
+IMPORTANT: "price" = total amount for that line item (what customer pays), NOT per-unit price.
 
 If you cannot identify any items, return: {"items": [], "fees": [], "subtotal": null, "total": null, "storeName": null}`
 

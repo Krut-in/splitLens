@@ -20,7 +20,8 @@ struct ReceiptItem: Identifiable, Codable, Equatable {
     /// Quantity of the item
     var quantity: Int
     
-    /// Price per unit (or total price if quantity is 1)
+    /// Total price for this line item (as shown on receipt)
+    /// This is the final amount for this line, NOT per-unit price
     var price: Double
     
     /// List of participant names this item is assigned to (supports splitting)
@@ -45,9 +46,15 @@ struct ReceiptItem: Identifiable, Codable, Equatable {
     
     // MARK: - Computed Properties
     
-    /// Total price for this item (quantity × price)
+    /// Total price for this item (same as price, which is the receipt line total)
     var totalPrice: Double {
-        Double(quantity) * price
+        price
+    }
+    
+    /// Price per unit (calculated from total / quantity, for editing purposes)
+    var unitPrice: Double {
+        guard quantity > 0 else { return price }
+        return price / Double(quantity)
     }
     
     /// Whether the item is assigned to anyone
