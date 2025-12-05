@@ -229,11 +229,12 @@ struct ItemRowCard: View {
                 
                 // Quantity and price row
                 HStack(alignment: .center, spacing: 16) {
-                    // Quantity controls
+                    // Quantity controls with label always visible
                     HStack(spacing: 8) {
                         Text("Qty")
                             .font(.system(size: 13, weight: .medium))
                             .foregroundStyle(.secondary)
+                            .fixedSize() // Prevent text from being compressed
                         
                         HStack(spacing: 0) {
                             Button(action: {
@@ -273,6 +274,7 @@ struct ItemRowCard: View {
                                 .fill(Color(.tertiarySystemFill))
                         )
                     }
+                    .layoutPriority(1) // Ensure this section gets priority in layout
                     
                     // Unit price display - always visible when quantity > 1
                     if item.quantity > 1 {
