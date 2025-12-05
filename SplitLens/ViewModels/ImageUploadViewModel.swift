@@ -120,27 +120,61 @@ final class ImageUploadViewModel: ObservableObject {
                 // Check for cancellation before starting
                 try Task.checkCancellation()
                 
-                // Step 1: Extract raw text from image using OCR
-                let rawText = try await ocrService.processReceipt(images: [imageToProcess])
-                
-                // Check for cancellation before parsing
-                try Task.checkCancellation()
-                
-                // Step 2: Parse raw text into structured items
-                let items = try textParser.parseReceiptText(rawText)
-                
-                // Step 3: Calculate confidence score
-                let confidence = textParser.calculateConfidence(for: items)
-                ocrConfidence = confidence
-                
-                if items.isEmpty {
-                    errorMessage = "No items found in the image"
-                } else {
-                    extractedItems = items
+                // Try structured extraction first (Gemini Vision - more accurate)
+                if let supabaseService = ocrService as? SupabaseOCRService {
+                    let structuredData = try await supabaseService.processReceiptStructured(images: [imageToProcess])
                     
-                    // Show warning if confidence is low
-                    if confidence < 0.7 {
-                        errorMessage = "Low confidence (\(Int(confidence * 100))%). Please verify extracted items."
+                    try Task.checkCancellation()
+                    
+                    // Convert structured data to ReceiptItems
+                    let items = structuredData.toReceiptItems(includeFees: true)
+                    
+                    if items.isEmpty {
+                        // If no structured items, try legacy text parsing as fallback
+                        if let rawText = structuredData.rawText {
+                            let parsedItems = try textParser.parseReceiptText(rawText)
+                            let confidence = textParser.calculateConfidence(for: parsedItems)
+                            ocrConfidence = confidence
+                            extractedItems = parsedItems
+                            
+                            if confidence < 0.7 {
+                                errorMessage = "Low confidence (\(Int(confidence * 100))%). Please verify extracted items."
+                            }
+                        } else {
+                            errorMessage = "No items found in the image"
+                        }
+                    } else {
+                        extractedItems = items
+                        ocrConfidence = 0.95 // High confidence for structured extraction
+                        
+                        // Log success for debugging
+                        print("✅ Extracted \(items.count) items via Gemini Vision")
+                        if let storeName = structuredData.storeName {
+                            print("   Store: \(storeName)")
+                        }
+                        if let total = structuredData.total {
+                            print("   Total: $\(String(format: "%.2f", total))")
+                        }
+                    }
+                    
+                } else {
+                    // Fallback: Legacy text extraction + parsing
+                    let rawText = try await ocrService.processReceipt(images: [imageToProcess])
+                    
+                    try Task.checkCancellation()
+                    
+                    let items = try textParser.parseReceiptText(rawText)
+                    let confidence = textParser.calculateConfidence(for: items)
+                    ocrConfidence = confidence
+                    
+                    if items.isEmpty {
+                        errorMessage = "No items found in the image"
+                    } else {
+                        extractedItems = items
+                        
+                        if confidence < 0.7 {
+                            errorMessage = "Low confidence (\(Int(confidence * 100))%). Please verify extracted items."
+                        }
                     }
                 }
                 

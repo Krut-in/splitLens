@@ -89,6 +89,7 @@ final class MockOCRService: OCRServiceProtocol {
 // MARK: - Real OCR Service (Supabase Integration)
 
 /// Real OCR service implementation using Supabase Edge Function
+/// Supports both legacy text extraction and structured Gemini Vision extraction
 final class SupabaseOCRService: OCRServiceProtocol {
     
     private let edgeFunctionURL: URL
@@ -108,61 +109,83 @@ final class SupabaseOCRService: OCRServiceProtocol {
         self.maxRetries = maxRetries
     }
     
-    // MARK: - Multi-Image Processing
+    // MARK: - Legacy Protocol Method (for backward compatibility)
     
     func processReceipt(images: [UIImage]) async throws -> String {
-        var combinedText = ""
+        // For backward compatibility, convert structured data to text
+        let structuredData = try await processReceiptStructured(images: images)
         
-        // Process each image sequentially
-        for (index, image) in images.enumerated() {
-            // Check for cancellation
-            try Task.checkCancellation()
-            
-            // Convert image to JPEG data
-            guard let imageData = image.jpegData(compressionQuality: 0.8) else {
-                throw OCRError.invalidImageFormat
-            }
-            
-            // Validate image size (not too small)
-            if imageData.count < 1000 {
-                throw OCRError.invalidImage
-            }
-            
-            // Process this image with retry logic
-            let text = try await processImageWithRetry(imageData: imageData, attemptNumber: 0)
-            
-            // Append to combined text
-            if !combinedText.isEmpty {
-                combinedText += "\n\n"
-            }
-            combinedText += text
+        // If we have raw text (legacy mode), return it
+        if let rawText = structuredData.rawText {
+            return rawText
         }
         
-        // Validate we got some text
-        guard !combinedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            throw OCRError.noTextDetected
+        // Convert structured data to readable text format
+        var lines: [String] = []
+        
+        if let storeName = structuredData.storeName {
+            lines.append(storeName)
+            lines.append("")
         }
         
-        return combinedText
+        for item in structuredData.items {
+            let qtyPrefix = item.quantity > 1 ? "\(item.quantity)x " : ""
+            lines.append("\(qtyPrefix)\(item.name)        $\(String(format: "%.2f", item.price))")
+        }
+        
+        if let fees = structuredData.fees {
+            lines.append("")
+            for fee in fees {
+                lines.append("\(fee.displayName)        $\(String(format: "%.2f", fee.amount))")
+            }
+        }
+        
+        if let total = structuredData.total {
+            lines.append("")
+            lines.append("TOTAL        $\(String(format: "%.2f", total))")
+        }
+        
+        return lines.joined(separator: "\n")
+    }
+    
+    // MARK: - Structured Receipt Processing (NEW - Preferred Method)
+    
+    /// Process receipt images and return structured data directly
+    /// This is the preferred method when using Gemini Vision API
+    func processReceiptStructured(images: [UIImage]) async throws -> StructuredReceiptData {
+        guard let firstImage = images.first else {
+            throw OCRError.invalidImage
+        }
+        
+        // For now, process only the first image
+        // Multi-image support can be added later by merging results
+        try Task.checkCancellation()
+        
+        guard let imageData = firstImage.jpegData(compressionQuality: 0.8) else {
+            throw OCRError.invalidImageFormat
+        }
+        
+        if imageData.count < 1000 {
+            throw OCRError.invalidImage
+        }
+        
+        return try await processImageStructuredWithRetry(imageData: imageData, attemptNumber: 0)
     }
     
     // MARK: - Retry Logic
     
-    private func processImageWithRetry(imageData: Data, attemptNumber: Int) async throws -> String {
+    private func processImageStructuredWithRetry(imageData: Data, attemptNumber: Int) async throws -> StructuredReceiptData {
         do {
-            return try await callOCREdgeFunction(imageData: imageData)
+            return try await callStructuredEdgeFunction(imageData: imageData)
         } catch let error as OCRError {
-            // Don't retry on certain errors
             switch error {
             case .invalidImageFormat, .invalidImage, .noTextDetected:
                 throw error
             case .networkError, .ocrServiceUnavailable, .timeout:
-                // Retry network-related errors
                 if attemptNumber < maxRetries {
-                    // Exponential backoff: 1s, 2s, 4s, etc.
                     let delay = UInt64(pow(2.0, Double(attemptNumber)) * 1_000_000_000)
                     try await Task.sleep(nanoseconds: delay)
-                    return try await processImageWithRetry(imageData: imageData, attemptNumber: attemptNumber + 1)
+                    return try await processImageStructuredWithRetry(imageData: imageData, attemptNumber: attemptNumber + 1)
                 } else {
                     throw error
                 }
@@ -170,30 +193,26 @@ final class SupabaseOCRService: OCRServiceProtocol {
                 throw error
             }
         } catch {
-            // Unknown error - retry if attempts remain
             if attemptNumber < maxRetries {
                 let delay = UInt64(pow(2.0, Double(attemptNumber)) * 1_000_000_000)
                 try await Task.sleep(nanoseconds: delay)
-                return try await processImageWithRetry(imageData: imageData, attemptNumber: attemptNumber + 1)
+                return try await processImageStructuredWithRetry(imageData: imageData, attemptNumber: attemptNumber + 1)
             } else {
                 throw OCRError.unknown(error)
             }
         }
     }
     
-    // MARK: - Edge Function Call
+    // MARK: - Edge Function Call (Structured Response)
     
-    private func callOCREdgeFunction(imageData: Data) async throws -> String {
-        // Convert image to base64
+    private func callStructuredEdgeFunction(imageData: Data) async throws -> StructuredReceiptData {
         let base64Image = imageData.base64EncodedString()
         
-        // Create JSON request body
         let requestBody: [String: Any] = ["image": base64Image]
         guard let jsonData = try? JSONSerialization.data(withJSONObject: requestBody) else {
             throw OCRError.imageProcessingFailed
         }
         
-        // Create request with timeout
         var request = URLRequest(url: edgeFunctionURL)
         request.httpMethod = "POST"
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
@@ -202,24 +221,18 @@ final class SupabaseOCRService: OCRServiceProtocol {
         request.timeoutInterval = timeout
         
         do {
-            // Send request with timeout
             let (data, response) = try await URLSession.shared.data(for: request)
             
-            // Check response status
             guard let httpResponse = response as? HTTPURLResponse else {
                 throw OCRError.ocrServiceUnavailable
             }
             
-            // Handle different status codes
             switch httpResponse.statusCode {
             case 200...299:
-                // Success - parse response
-                return try parseOCRResponse(data)
+                return try parseStructuredResponse(data)
             case 408, 504:
-                // Timeout errors
                 throw OCRError.timeout
             case 500...599:
-                // Service unavailable
                 throw OCRError.ocrServiceUnavailable
             default:
                 throw OCRError.ocrServiceUnavailable
@@ -228,11 +241,8 @@ final class SupabaseOCRService: OCRServiceProtocol {
         } catch let error as OCRError {
             throw error
         } catch let urlError as URLError {
-            // Handle URLSession errors
             if urlError.code == .timedOut {
                 throw OCRError.timeout
-            } else if urlError.code == .notConnectedToInternet {
-                throw OCRError.networkError(urlError)
             } else {
                 throw OCRError.networkError(urlError)
             }
@@ -241,21 +251,33 @@ final class SupabaseOCRService: OCRServiceProtocol {
         }
     }
     
-    // MARK: - Response Parsing
+    // MARK: - Parse Structured Response
     
-    private func parseOCRResponse(_ data: Data) throws -> String {
-        // Parse JSON response: { "text": "raw ocr text..." }
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let text = json["text"] as? String else {
-            throw OCRError.parsingFailed("Invalid response format")
+    private func parseStructuredResponse(_ data: Data) throws -> StructuredReceiptData {
+        // First, check for error response
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let errorMessage = json["error"] as? String {
+            throw OCRError.parsingFailed(errorMessage)
         }
         
-        // Validate we got meaningful text
-        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedText.isEmpty else {
-            throw OCRError.noTextDetected
+        // Try to decode as StructuredReceiptData
+        do {
+            let decoder = JSONDecoder()
+            let result = try decoder.decode(StructuredReceiptData.self, from: data)
+            
+            // Validate we got meaningful data
+            if result.items.isEmpty && result.rawText == nil {
+                throw OCRError.noTextDetected
+            }
+            
+            return result
+        } catch let decodingError as DecodingError {
+            // Log the raw response for debugging
+            if let responseString = String(data: data, encoding: .utf8) {
+                print("Failed to decode response: \(responseString)")
+            }
+            throw OCRError.parsingFailed("Failed to parse structured response: \(decodingError.localizedDescription)")
         }
-        
-        return text
     }
 }
+
