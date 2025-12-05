@@ -19,6 +19,9 @@ final class AssignmentViewModel: ObservableObject {
     /// List of participants
     @Published var participants: [String]
     
+    /// Name of the person who paid the bill
+    @Published var paidBy: String
+    
     /// Current item being assigned (for focused editing)
     @Published var currentItemIndex: Int = 0
     
@@ -76,10 +79,12 @@ final class AssignmentViewModel: ObservableObject {
     init(
         items: [ReceiptItem],
         participants: [String],
+        paidBy: String,
         billSplitEngine: BillSplitEngineProtocol = DependencyContainer.shared.billSplitEngine
     ) {
         self.items = items
         self.participants = participants
+        self.paidBy = paidBy
         self.billSplitEngine = billSplitEngine
     }
     

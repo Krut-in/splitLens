@@ -29,7 +29,8 @@ struct ItemAssignmentView: View {
     ) {
         _viewModel = StateObject(wrappedValue: AssignmentViewModel(
             items: items,
-            participants: participants
+            participants: participants,
+            paidBy: paidBy
         ))
         _navigationPath = navigationPath
     }
@@ -194,11 +195,11 @@ struct ItemAssignmentView: View {
     // MARK: - Methods
     
     private func calculateSplits() {
-        // Create session
+        // Create session with the correct paidBy from the view model
         let session = ReceiptSession(
             participants: viewModel.participants,
             totalAmount: viewModel.items.reduce(0.0) { $0 + $1.totalPrice },
-            paidBy: viewModel.participants.first ?? "",
+            paidBy: viewModel.paidBy,
             items: viewModel.items,
             computedSplits: []
         )
@@ -224,9 +225,20 @@ struct ItemAssignmentCard: View {
                         .foregroundStyle(.primary)
                     
                     if item.quantity > 1 {
-                        Text("Qty: \(item.quantity)")
-                            .font(.system(size: 13))
-                            .foregroundStyle(.secondary)
+                        HStack(spacing: 4) {
+                            Text("Qty:")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(.secondary)
+                            Text("\(item.quantity)")
+                                .font(.system(size: 13, weight: .bold, design: .rounded))
+                                .foregroundStyle(.blue)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(
+                            RoundedRectangle(cornerRadius: 5)
+                                .fill(Color.blue.opacity(0.1))
+                        )
                     }
                 }
                 

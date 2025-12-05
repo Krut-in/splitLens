@@ -274,11 +274,22 @@ struct ItemRowCard: View {
                         )
                     }
                     
-                    // Unit price display
+                    // Unit price display - always visible when quantity > 1
                     if item.quantity > 1 {
-                        Text("× \(CurrencyFormatter.shared.format(item.unitPrice))")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(.secondary)
+                        HStack(spacing: 4) {
+                            Text("×")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(.secondary)
+                            Text(CurrencyFormatter.shared.format(item.unitPrice))
+                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                .foregroundStyle(.blue)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(Color.blue.opacity(0.1))
+                        )
                     }
                     
                     Spacer()

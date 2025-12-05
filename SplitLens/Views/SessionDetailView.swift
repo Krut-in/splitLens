@@ -151,9 +151,20 @@ struct SessionDetailView: View {
                                 .foregroundStyle(.primary)
                             
                             if item.quantity > 1 {
-                                Text("Qty: \(item.quantity)")
-                                    .font(.system(size: 13))
-                                    .foregroundStyle(.secondary)
+                                HStack(spacing: 4) {
+                                    Text("Qty:")
+                                        .font(.system(size: 13, weight: .medium))
+                                        .foregroundStyle(.secondary)
+                                    Text("\(item.quantity)")
+                                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                                        .foregroundStyle(.blue)
+                                }
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 5)
+                                        .fill(Color.blue.opacity(0.1))
+                                )
                             }
                             
                             if !item.assignedTo.isEmpty {
