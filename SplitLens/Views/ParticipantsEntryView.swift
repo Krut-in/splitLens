@@ -80,6 +80,11 @@ struct ParticipantsEntryView: View {
                 }
                 .padding(.vertical)
             }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                // Dismiss keyboard when tapping outside text field
+                isNameFieldFocused = false
+            }
         }
         .navigationTitle("Participants")
         .navigationBarTitleDisplayMode(.large)
@@ -112,7 +117,16 @@ struct ParticipantsEntryView: View {
             
             HStack(spacing: 12) {
                 TextField("Enter name", text: $viewModel.newParticipantName)
-                    .textFieldStyle(.roundedBorder)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color(.systemBackground))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                            )
+                    )
                     .focused($isNameFieldFocused)
                     .onSubmit {
                         viewModel.addNewParticipant()

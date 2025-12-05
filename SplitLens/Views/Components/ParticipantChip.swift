@@ -23,12 +23,6 @@ struct ParticipantChip: View {
             action()
         }) {
             HStack(spacing: 6) {
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.white)
-                }
-                
                 Text(name)
                     .font(.system(size: 15, weight: isSelected ? .semibold : .medium))
                     .foregroundStyle(isSelected ? .white : .primary)
