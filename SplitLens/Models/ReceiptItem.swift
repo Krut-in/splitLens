@@ -27,6 +27,10 @@ struct ReceiptItem: Identifiable, Codable, Equatable {
     /// List of participant names this item is assigned to (supports splitting)
     var assignedTo: [String]
     
+    /// Source page index for multi-image receipts (0-based)
+    /// nil for single-image receipts or manually added items
+    var sourcePageIndex: Int?
+    
     // MARK: - Initialization
     
     /// Creates a new receipt item with default values
@@ -35,13 +39,15 @@ struct ReceiptItem: Identifiable, Codable, Equatable {
         name: String = "",
         quantity: Int = 1,
         price: Double = 0.0,
-        assignedTo: [String] = []
+        assignedTo: [String] = [],
+        sourcePageIndex: Int? = nil
     ) {
         self.id = id
         self.name = name
         self.quantity = quantity
         self.price = price
         self.assignedTo = assignedTo
+        self.sourcePageIndex = sourcePageIndex
     }
     
     // MARK: - Computed Properties
@@ -131,7 +137,8 @@ extension ReceiptItem {
             name: "Caesar Salad",
             quantity: 1,
             price: 12.99,
-            assignedTo: ["Alice"]
+            assignedTo: ["Alice"],
+            sourcePageIndex: 0
         )
     }
     
@@ -140,16 +147,33 @@ extension ReceiptItem {
             name: "Pizza (Large)",
             quantity: 1,
             price: 24.99,
-            assignedTo: ["Alice", "Bob", "Charlie"]
+            assignedTo: ["Alice", "Bob", "Charlie"],
+            sourcePageIndex: 0
         )
     }
     
     static var samples: [ReceiptItem] {
         [
-            ReceiptItem(name: "Caesar Salad", quantity: 1, price: 12.99, assignedTo: ["Alice"]),
-            ReceiptItem(name: "Burger", quantity: 2, price: 15.99, assignedTo: ["Bob"]),
-            ReceiptItem(name: "Pizza (Large)", quantity: 1, price: 24.99, assignedTo: ["Alice", "Bob", "Charlie"]),
-            ReceiptItem(name: "Coke", quantity: 3, price: 2.99, assignedTo: [])
+            ReceiptItem(name: "Caesar Salad", quantity: 1, price: 12.99, assignedTo: ["Alice"], sourcePageIndex: 0),
+            ReceiptItem(name: "Burger", quantity: 2, price: 15.99, assignedTo: ["Bob"], sourcePageIndex: 0),
+            ReceiptItem(name: "Pizza (Large)", quantity: 1, price: 24.99, assignedTo: ["Alice", "Bob", "Charlie"], sourcePageIndex: 1),
+            ReceiptItem(name: "Coke", quantity: 3, price: 2.99, assignedTo: [], sourcePageIndex: 1)
+        ]
+    }
+    
+    /// Sample data for multi-page receipt testing
+    static var multiPageSamples: [ReceiptItem] {
+        [
+            // Page 1 items
+            ReceiptItem(name: "Caesar Salad", quantity: 1, price: 12.99, assignedTo: [], sourcePageIndex: 0),
+            ReceiptItem(name: "Burger Deluxe", quantity: 2, price: 15.99, assignedTo: [], sourcePageIndex: 0),
+            ReceiptItem(name: "Fries Large", quantity: 1, price: 4.99, assignedTo: [], sourcePageIndex: 0),
+            // Page 2 items
+            ReceiptItem(name: "Pizza Margherita", quantity: 1, price: 18.99, assignedTo: [], sourcePageIndex: 1),
+            ReceiptItem(name: "Pasta Carbonara", quantity: 1, price: 16.99, assignedTo: [], sourcePageIndex: 1),
+            // Page 3 items
+            ReceiptItem(name: "Tiramisu", quantity: 2, price: 8.99, assignedTo: [], sourcePageIndex: 2),
+            ReceiptItem(name: "Espresso", quantity: 3, price: 3.50, assignedTo: [], sourcePageIndex: 2)
         ]
     }
 }

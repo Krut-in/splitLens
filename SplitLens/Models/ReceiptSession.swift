@@ -32,6 +32,9 @@ struct ReceiptSession: Identifiable, Codable, Equatable {
     /// Calculated split logs showing who owes whom
     var computedSplits: [SplitLog]
     
+    /// Extracted fees with their allocation strategies
+    var feeAllocations: [FeeAllocation]
+    
     // MARK: - Initialization
     
     /// Creates a new receipt session
@@ -42,7 +45,8 @@ struct ReceiptSession: Identifiable, Codable, Equatable {
         totalAmount: Double = 0.0,
         paidBy: String = "",
         items: [ReceiptItem] = [],
-        computedSplits: [SplitLog] = []
+        computedSplits: [SplitLog] = [],
+        feeAllocations: [FeeAllocation] = []
     ) {
         self.id = id
         self.createdAt = createdAt
@@ -51,6 +55,7 @@ struct ReceiptSession: Identifiable, Codable, Equatable {
         self.paidBy = paidBy
         self.items = items
         self.computedSplits = computedSplits
+        self.feeAllocations = feeAllocations
     }
     
     // MARK: - Computed Properties
@@ -68,6 +73,16 @@ struct ReceiptSession: Identifiable, Codable, Equatable {
     /// Number of payment transfers needed
     var splitCount: Int {
         computedSplits.count
+    }
+    
+    /// Computed: Total fees amount
+    var totalFees: Double {
+        feeAllocations.reduce(0) { $0 + $1.fee.amount }
+    }
+    
+    /// Computed: Subtotal (items only, no fees)
+    var subtotal: Double {
+        items.reduce(0) { $0 + $1.totalPrice }
     }
     
     /// Calculated total from all items (sum of item totals)
@@ -188,6 +203,7 @@ extension ReceiptSession {
         case paidBy = "paid_by"
         case items
         case computedSplits = "computed_splits"
+        case feeAllocations = "fee_allocations"
     }
 }
 

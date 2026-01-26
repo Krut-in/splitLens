@@ -371,14 +371,206 @@ final class AdvancedBillSplitEngine: BillSplitEngineProtocol {
     var tipDistribution: TipDistribution = .proportional
     
     func computeSplits(session: ReceiptSession) throws -> BillSplitResult {
-        // For now, use basic engine
-        // Future: Add tax/tip distribution logic here
+        // If session has fee allocations, use the new method
+        if !session.feeAllocations.isEmpty {
+            return try computeSplitsWithFees(session: session)
+        }
+        // Otherwise, use basic engine
         return try basicEngine.computeSplits(session: session)
     }
     
-    // Future methods:
-    // - func distributeTax(amount: Double, among participants: [String])
-    // - func distributeTip(amount: Double, among participants: [String])
-    // - func applyDiscount(code: String, to session: ReceiptSession)
+    /// Computes splits including fee allocations
+    /// - Parameter session: The receipt session with fee allocations
+    /// - Returns: BillSplitResult with splits including fee breakdown
+    /// - Throws: BillSplitError for validation failures
+    func computeSplitsWithFees(session: ReceiptSession) throws -> BillSplitResult {
+        var warnings: [BillSplitWarning] = []
+        
+        // VALIDATION: Check basic requirements
+        guard !session.participants.isEmpty else {
+            throw BillSplitError.noParticipants
+        }
+        
+        guard !session.items.isEmpty else {
+            throw BillSplitError.noItems
+        }
+        
+        guard session.participants.contains(session.paidBy) else {
+            throw BillSplitError.invalidPayer(session.paidBy)
+        }
+        
+        // Validate fee allocations
+        for allocation in session.feeAllocations {
+            if allocation.strategy == .manual {
+                guard let assignees = allocation.manualAssignments, !assignees.isEmpty else {
+                    throw BillSplitError.invalidFeeAllocation(
+                        "\(allocation.fee.displayName) has no assigned participants"
+                    )
+                }
+            }
+        }
+        
+        // Check for unassigned items (warning only)
+        let unassignedCount = session.items.filter { !$0.isAssigned }.count
+        if unassignedCount > 0 {
+            warnings.append(BillSplitWarning(type: .unassignedItems(count: unassignedCount)))
+        }
+        
+        // Edge case: Single participant
+        if session.participants.count == 1 {
+            warnings.append(BillSplitWarning(type: .singleParticipant))
+            return BillSplitResult(splits: [], warnings: warnings)
+        }
+        
+        // STEP 1: Calculate base item totals per person
+        var personTotals: [String: Double] = [:]
+        var itemBreakdowns: [String: [(item: String, amount: Double)]] = [:]
+        
+        // Initialize all participants
+        for participant in session.participants {
+            personTotals[participant] = 0.0
+            itemBreakdowns[participant] = []
+        }
+        
+        // Calculate individual item shares
+        for item in session.items {
+            guard item.isAssigned else { continue }
+            
+            let totalItemCost = item.totalPrice
+            
+            if item.assignedTo.contains("All") {
+                let costPerPerson = totalItemCost / Double(session.participants.count)
+                for participant in session.participants {
+                    personTotals[participant, default: 0.0] += costPerPerson
+                    itemBreakdowns[participant, default: []]
+                        .append((item: item.name, amount: costPerPerson))
+                }
+            } else {
+                let assignedCount = item.assignedTo.count
+                guard assignedCount > 0 else { continue }
+                
+                let costPerPerson = totalItemCost / Double(assignedCount)
+                for person in item.assignedTo {
+                    personTotals[person, default: 0.0] += costPerPerson
+                    itemBreakdowns[person, default: []]
+                        .append((item: item.name, amount: costPerPerson))
+                }
+            }
+        }
+        
+        // STEP 2: Allocate fees according to their strategies
+        var feeBreakdowns: [String: [(fee: String, amount: Double)]] = [:]
+        for participant in session.participants {
+            feeBreakdowns[participant] = []
+        }
+        
+        let totalItemSpending = personTotals.values.reduce(0, +)
+        
+        for allocation in session.feeAllocations {
+            switch allocation.strategy {
+            case .proportional:
+                // Distribute proportionally by current spending ratio
+                guard totalItemSpending > 0 else { continue }
+                for (person, spending) in personTotals {
+                    let ratio = spending / totalItemSpending
+                    let feeAmount = allocation.fee.amount * ratio
+                    personTotals[person]! += feeAmount
+                    feeBreakdowns[person, default: []]
+                        .append((fee: allocation.fee.displayName, amount: feeAmount))
+                }
+                
+            case .equal:
+                // Divide equally among all participants
+                let perPerson = allocation.fee.amount / Double(session.participants.count)
+                for person in session.participants {
+                    personTotals[person, default: 0] += perPerson
+                    feeBreakdowns[person, default: []]
+                        .append((fee: allocation.fee.displayName, amount: perPerson))
+                }
+                
+            case .manual:
+                // Assign to specified people only
+                guard let assignees = allocation.manualAssignments, !assignees.isEmpty else {
+                    continue
+                }
+                let perPerson = allocation.fee.amount / Double(assignees.count)
+                for person in assignees {
+                    personTotals[person, default: 0] += perPerson
+                    feeBreakdowns[person, default: []]
+                        .append((fee: allocation.fee.displayName, amount: perPerson))
+                }
+            }
+        }
+        
+        // STEP 3: Generate settlement logs with detailed explanations
+        var splits: [SplitLog] = []
+        let payer = session.paidBy
+        
+        for participant in session.participants where participant != payer {
+            let amountOwed = personTotals[participant] ?? 0.0
+            
+            // Filter out insignificant amounts
+            if amountOwed > 0.01 {
+                let explanation = generateDetailedExplanationWithFees(
+                    for: participant,
+                    itemBreakdowns: itemBreakdowns[participant] ?? [],
+                    feeBreakdowns: feeBreakdowns[participant] ?? [],
+                    totalOwed: amountOwed
+                )
+                
+                let split = SplitLog(
+                    from: participant,
+                    to: payer,
+                    amount: (amountOwed * 100).rounded() / 100,
+                    explanation: explanation
+                )
+                splits.append(split)
+            }
+        }
+        
+        // Sort by amount (largest first)
+        splits.sort { $0.amount > $1.amount }
+        
+        return BillSplitResult(splits: splits, warnings: warnings)
+    }
+    
+    /// Generates detailed explanation including fee breakdown
+    /// Example: "Items: $20.00 + Tax: $2.00 + Tip: $2.50 = $24.50"
+    private func generateDetailedExplanationWithFees(
+        for person: String,
+        itemBreakdowns: [(item: String, amount: Double)],
+        feeBreakdowns: [(fee: String, amount: Double)],
+        totalOwed: Double
+    ) -> String {
+        var lines: [String] = []
+        
+        // Add item breakdown
+        if !itemBreakdowns.isEmpty {
+            let itemsTotal = itemBreakdowns.reduce(0) { $0 + $1.amount }
+            lines.append(String(format: "Items: $%.2f", itemsTotal))
+            
+            // Add individual items for detail
+            for breakdown in itemBreakdowns.prefix(5) {
+                lines.append(String(format: "  • %@: $%.2f", breakdown.item, breakdown.amount))
+            }
+            if itemBreakdowns.count > 5 {
+                lines.append("  ... and \(itemBreakdowns.count - 5) more items")
+            }
+        }
+        
+        // Add fee breakdown
+        if !feeBreakdowns.isEmpty {
+            lines.append("")
+            for breakdown in feeBreakdowns {
+                lines.append(String(format: "+ %@: $%.2f", breakdown.fee, breakdown.amount))
+            }
+        }
+        
+        // Add total
+        lines.append("")
+        lines.append(String(format: "= Total: $%.2f", totalOwed))
+        
+        return lines.joined(separator: "\n")
+    }
 }
 

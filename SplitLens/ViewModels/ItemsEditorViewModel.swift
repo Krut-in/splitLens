@@ -16,6 +16,9 @@ final class ItemsEditorViewModel: ObservableObject {
     /// List of receipt items
     @Published var items: [ReceiptItem] = []
     
+    /// Extracted fees from OCR (tax, tip, delivery, etc.)
+    @Published var extractedFees: [Fee] = []
+    
     /// Total amount entered by user (may differ from calculated total)
     @Published var totalAmount: Double = 0.0
     
@@ -25,16 +28,63 @@ final class ItemsEditorViewModel: ObservableObject {
     /// Whether to show add item sheet
     @Published var showAddItemSheet = false
     
+    /// Selected page filter (-1 = all pages)
+    @Published var selectedPageFilter: Int = -1
+    
     // MARK: - Computed Properties
+    
+    /// Filtered items based on selected page
+    var filteredItems: [ReceiptItem] {
+        if selectedPageFilter == -1 {
+            return items
+        }
+        return items.filter { $0.sourcePageIndex == selectedPageFilter }
+    }
+    
+    /// Unique page indices from items
+    var availablePages: [Int] {
+        let pages = Set(items.compactMap { $0.sourcePageIndex })
+        return Array(pages).sorted()
+    }
+    
+    /// Whether multi-page filtering is available
+    var hasMultiplePages: Bool {
+        availablePages.count > 1
+    }
     
     /// Calculated total from all items
     var calculatedTotal: Double {
         items.reduce(0.0) { $0 + $1.totalPrice }
     }
     
+    /// Total fees amount
+    var totalFees: Double {
+        extractedFees.reduce(0.0) { $0 + $1.amount }
+    }
+    
+    /// Grand total including fees
+    var grandTotal: Double {
+        calculatedTotal + totalFees
+    }
+    
+    /// Whether there are extracted fees
+    var hasFees: Bool {
+        !extractedFees.isEmpty
+    }
+    
     /// Formatted calculated total
     var formattedCalculatedTotal: String {
         formatCurrency(calculatedTotal)
+    }
+    
+    /// Formatted fees total
+    var formattedFeesTotal: String {
+        formatCurrency(totalFees)
+    }
+    
+    /// Formatted grand total
+    var formattedGrandTotal: String {
+        formatCurrency(grandTotal)
     }
     
     /// Formatted entered total
@@ -65,8 +115,13 @@ final class ItemsEditorViewModel: ObservableObject {
     
     // MARK: - Initialization
     
-    init(items: [ReceiptItem] = []) {
+    /// Creates a new ItemsEditorViewModel
+    /// - Parameters:
+    ///   - items: Initial receipt items
+    ///   - fees: Extracted fees from OCR (optional)
+    init(items: [ReceiptItem] = [], fees: [Fee] = []) {
         self.items = items
+        self.extractedFees = fees
         self.totalAmount = items.reduce(0.0) { $0 + $1.totalPrice }
     }
     

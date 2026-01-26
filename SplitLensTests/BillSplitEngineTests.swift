@@ -409,4 +409,227 @@ final class BillSplitEngineTests: XCTestCase {
         XCTAssertTrue(bobSplit?.explanation.contains("÷ 3 =") ?? false)
         XCTAssertTrue(bobSplit?.explanation.contains("$8.0") ?? false)
     }
+    
+    // MARK: - Fee Allocation Tests
+    
+    func testProportionalTaxDistribution() throws {
+        // Alice: $20 items, Bob: $30 items, Tax: $5
+        // Expected: Alice: $2 tax (40%), Bob: $3 tax (60%)
+        let items = [
+            ReceiptItem(name: "Alice's Salad", quantity: 1, price: 20.00, assignedTo: ["Alice"]),
+            ReceiptItem(name: "Bob's Burger", quantity: 1, price: 30.00, assignedTo: ["Bob"])
+        ]
+        
+        let feeAllocations = [
+            FeeAllocation(
+                fee: Fee(type: "tax", amount: 5.00),
+                strategy: .proportional
+            )
+        ]
+        
+        let session = ReceiptSession(
+            participants: ["Alice", "Bob"],
+            totalAmount: 55.00,
+            paidBy: "Alice",
+            items: items,
+            computedSplits: [],
+            feeAllocations: feeAllocations
+        )
+        
+        let advancedEngine = AdvancedBillSplitEngine()
+        let result = try advancedEngine.computeSplits(session: session)
+        
+        // Bob owes Alice: $30 (items) + $3 (60% of tax) = $33
+        let bobSplit = result.splits.first { $0.from == "Bob" }
+        XCTAssertNotNil(bobSplit)
+        XCTAssertEqual(bobSplit?.amount ?? 0, 33.00, accuracy: 0.01)
+    }
+    
+    func testEqualTipDistribution() throws {
+        // 3 participants, $9 tip split equally = $3 each
+        let items = [
+            ReceiptItem(name: "Pizza", quantity: 1, price: 30.00, assignedTo: ["Alice", "Bob", "Carol"])
+        ]
+        
+        let feeAllocations = [
+            FeeAllocation(
+                fee: Fee(type: "tip", amount: 9.00),
+                strategy: .equal
+            )
+        ]
+        
+        let session = ReceiptSession(
+            participants: ["Alice", "Bob", "Carol"],
+            totalAmount: 39.00,
+            paidBy: "Alice",
+            items: items,
+            computedSplits: [],
+            feeAllocations: feeAllocations
+        )
+        
+        let advancedEngine = AdvancedBillSplitEngine()
+        let result = try advancedEngine.computeSplits(session: session)
+        
+        // Bob: $10 (pizza) + $3 (tip) = $13
+        let bobSplit = result.splits.first { $0.from == "Bob" }
+        XCTAssertNotNil(bobSplit)
+        XCTAssertEqual(bobSplit?.amount ?? 0, 13.00, accuracy: 0.01)
+        
+        // Carol: $10 (pizza) + $3 (tip) = $13
+        let carolSplit = result.splits.first { $0.from == "Carol" }
+        XCTAssertNotNil(carolSplit)
+        XCTAssertEqual(carolSplit?.amount ?? 0, 13.00, accuracy: 0.01)
+    }
+    
+    func testManualFeeAssignment() throws {
+        // Delivery fee $6 assigned only to Alice and Bob (not Carol)
+        let items = [
+            ReceiptItem(name: "Pizza", quantity: 1, price: 30.00, assignedTo: ["Alice", "Bob", "Carol"])
+        ]
+        
+        let feeAllocations = [
+            FeeAllocation(
+                fee: Fee(type: "delivery", amount: 6.00),
+                strategy: .manual,
+                manualAssignments: ["Alice", "Bob"]
+            )
+        ]
+        
+        let session = ReceiptSession(
+            participants: ["Alice", "Bob", "Carol"],
+            totalAmount: 36.00,
+            paidBy: "Alice",
+            items: items,
+            computedSplits: [],
+            feeAllocations: feeAllocations
+        )
+        
+        let advancedEngine = AdvancedBillSplitEngine()
+        let result = try advancedEngine.computeSplits(session: session)
+        
+        // Bob: $10 (pizza) + $3 (delivery / 2) = $13
+        let bobSplit = result.splits.first { $0.from == "Bob" }
+        XCTAssertNotNil(bobSplit)
+        XCTAssertEqual(bobSplit?.amount ?? 0, 13.00, accuracy: 0.01)
+        
+        // Carol: $10 (pizza) + $0 (no delivery fee) = $10
+        let carolSplit = result.splits.first { $0.from == "Carol" }
+        XCTAssertNotNil(carolSplit)
+        XCTAssertEqual(carolSplit?.amount ?? 0, 10.00, accuracy: 0.01)
+    }
+    
+    func testMixedFeeStrategies() throws {
+        // Test combining different fee strategies
+        // Alice: $20, Bob: $30
+        // Tax $5 proportional, Tip $6 equal, Delivery $4 to Bob only
+        let items = [
+            ReceiptItem(name: "Alice's Item", quantity: 1, price: 20.00, assignedTo: ["Alice"]),
+            ReceiptItem(name: "Bob's Item", quantity: 1, price: 30.00, assignedTo: ["Bob"])
+        ]
+        
+        let feeAllocations = [
+            FeeAllocation(
+                fee: Fee(type: "tax", amount: 5.00),
+                strategy: .proportional
+            ),
+            FeeAllocation(
+                fee: Fee(type: "tip", amount: 6.00),
+                strategy: .equal
+            ),
+            FeeAllocation(
+                fee: Fee(type: "delivery", amount: 4.00),
+                strategy: .manual,
+                manualAssignments: ["Bob"]
+            )
+        ]
+        
+        let session = ReceiptSession(
+            participants: ["Alice", "Bob"],
+            totalAmount: 65.00,
+            paidBy: "Alice",
+            items: items,
+            computedSplits: [],
+            feeAllocations: feeAllocations
+        )
+        
+        let advancedEngine = AdvancedBillSplitEngine()
+        let result = try advancedEngine.computeSplits(session: session)
+        
+        // Bob: $30 (items) + $3 (60% tax) + $3 (50% tip) + $4 (delivery) = $40
+        let bobSplit = result.splits.first { $0.from == "Bob" }
+        XCTAssertNotNil(bobSplit)
+        XCTAssertEqual(bobSplit?.amount ?? 0, 40.00, accuracy: 0.01)
+    }
+    
+    func testFeeAllocationExplanation() throws {
+        // Verify detailed fee breakdown in explanation
+        let items = [
+            ReceiptItem(name: "Pizza", quantity: 1, price: 20.00, assignedTo: ["Alice", "Bob"])
+        ]
+        
+        let feeAllocations = [
+            FeeAllocation(
+                fee: Fee(type: "tax", amount: 2.00),
+                strategy: .equal
+            ),
+            FeeAllocation(
+                fee: Fee(type: "tip", amount: 4.00),
+                strategy: .equal
+            )
+        ]
+        
+        let session = ReceiptSession(
+            participants: ["Alice", "Bob"],
+            totalAmount: 26.00,
+            paidBy: "Alice",
+            items: items,
+            computedSplits: [],
+            feeAllocations: feeAllocations
+        )
+        
+        let advancedEngine = AdvancedBillSplitEngine()
+        let result = try advancedEngine.computeSplits(session: session)
+        
+        let bobSplit = result.splits.first { $0.from == "Bob" }
+        XCTAssertNotNil(bobSplit)
+        
+        // Explanation should include fee breakdown
+        XCTAssertTrue(bobSplit?.explanation.contains("Tax") ?? false)
+        XCTAssertTrue(bobSplit?.explanation.contains("Tip") ?? false)
+        XCTAssertTrue(bobSplit?.explanation.contains("Total") ?? false)
+    }
+    
+    func testInvalidManualFeeAllocation() throws {
+        // Manual strategy without any assignments should fail
+        let items = [
+            ReceiptItem(name: "Pizza", quantity: 1, price: 20.00, assignedTo: ["Alice", "Bob"])
+        ]
+        
+        let feeAllocations = [
+            FeeAllocation(
+                fee: Fee(type: "delivery", amount: 5.00),
+                strategy: .manual,
+                manualAssignments: nil // Empty assignments
+            )
+        ]
+        
+        let session = ReceiptSession(
+            participants: ["Alice", "Bob"],
+            totalAmount: 25.00,
+            paidBy: "Alice",
+            items: items,
+            computedSplits: [],
+            feeAllocations: feeAllocations
+        )
+        
+        let advancedEngine = AdvancedBillSplitEngine()
+        
+        XCTAssertThrowsError(try advancedEngine.computeSplits(session: session)) { error in
+            if case BillSplitError.invalidFeeAllocation = error {
+                // Expected
+            } else {
+                XCTFail("Expected invalidFeeAllocation error")
+            }
+        }
+    }
 }

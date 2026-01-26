@@ -14,6 +14,20 @@ struct ErrorBanner: View {
     let error: Error
     let retryAction: (() -> Void)?
     
+    // MARK: - Initializers
+    
+    /// Initialize with an Error object
+    init(error: Error, retryAction: (() -> Void)? = nil) {
+        self.error = error
+        self.retryAction = retryAction
+    }
+    
+    /// Initialize with a string message (for backward compatibility)
+    init(message: String, retryAction: (() -> Void)? = nil) {
+        self.error = NSError(domain: "ErrorBanner", code: 0, userInfo: [NSLocalizedDescriptionKey: message])
+        self.retryAction = retryAction
+    }
+    
     // MARK: - Computed Properties
     
     private var errorMessage: String {

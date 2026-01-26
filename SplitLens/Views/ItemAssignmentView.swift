@@ -18,6 +18,11 @@ struct ItemAssignmentView: View {
     
     @StateObject private var viewModel: AssignmentViewModel
     
+    // MARK: - Properties
+    
+    /// Fee allocations from previous screen (may be empty)
+    private let feeAllocations: [FeeAllocation]
+    
     // MARK: - Initialization
     
     init(
@@ -25,6 +30,7 @@ struct ItemAssignmentView: View {
         participants: [String],
         paidBy: String,
         totalAmount: Double,
+        feeAllocations: [FeeAllocation] = [],
         navigationPath: Binding<NavigationPath>
     ) {
         _viewModel = StateObject(wrappedValue: AssignmentViewModel(
@@ -32,6 +38,7 @@ struct ItemAssignmentView: View {
             participants: participants,
             paidBy: paidBy
         ))
+        self.feeAllocations = feeAllocations
         _navigationPath = navigationPath
     }
     
@@ -195,13 +202,17 @@ struct ItemAssignmentView: View {
     // MARK: - Methods
     
     private func calculateSplits() {
-        // Create session with the correct paidBy from the view model
+        // Create session with fee allocations
+        let totalWithFees = viewModel.items.reduce(0.0) { $0 + $1.totalPrice } +
+                            feeAllocations.reduce(0.0) { $0 + $1.fee.amount }
+        
         let session = ReceiptSession(
             participants: viewModel.participants,
-            totalAmount: viewModel.items.reduce(0.0) { $0 + $1.totalPrice },
+            totalAmount: totalWithFees,
             paidBy: viewModel.paidBy,
             items: viewModel.items,
-            computedSplits: []
+            computedSplits: [],
+            feeAllocations: feeAllocations
         )
         
         navigationPath.append(Route.finalReport(session))
@@ -308,6 +319,7 @@ struct ItemAssignmentCard: View {
             participants: ["Alice", "Bob", "Charlie"],
             paidBy: "Alice",
             totalAmount: 65.96,
+            feeAllocations: [],
             navigationPath: .constant(NavigationPath())
         )
     }

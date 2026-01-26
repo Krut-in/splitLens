@@ -132,16 +132,26 @@ struct HomeView: View {
         switch route {
         case .imageUpload:
             ImageUploadView(navigationPath: $navigationPath)
-        case .itemsEditor(let items):
-            ItemsEditorView(items: items, navigationPath: $navigationPath)
-        case .participantsEntry(let items):
-            ParticipantsEntryView(items: items, navigationPath: $navigationPath)
-        case .itemAssignment(let items, let participants, let paidBy, let total):
+        case .itemsEditor(let items, let fees):
+            ItemsEditorView(items: items, fees: fees, navigationPath: $navigationPath)
+        case .participantsEntry(let items, let fees):
+            ParticipantsEntryView(items: items, fees: fees, navigationPath: $navigationPath)
+        case .taxTipAllocation(let items, let fees, let participants, let paidBy, let total):
+            TaxTipAllocationView(
+                items: items,
+                fees: fees,
+                participants: participants,
+                paidBy: paidBy,
+                totalAmount: total,
+                navigationPath: $navigationPath
+            )
+        case .itemAssignment(let items, let participants, let paidBy, let total, let feeAllocations):
             ItemAssignmentView(
                 items: items,
                 participants: participants,
                 paidBy: paidBy,
                 totalAmount: total,
+                feeAllocations: feeAllocations,
                 navigationPath: $navigationPath
             )
         case .finalReport(let session):

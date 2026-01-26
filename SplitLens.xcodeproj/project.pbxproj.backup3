@@ -68,6 +68,8 @@
 		F3CAC4912EDB538F004D4E76 /* AnimatedGradientBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3CAC4902EDB538E004D4E76 /* AnimatedGradientBackground.swift */; };
 		F3D49E0E2F27BB3F0010FDAC /* FeeAllocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3D49E0D2F27BB3F0010FDAC /* FeeAllocation.swift */; };
 		F3D49E102F27BB780010FDAC /* PageProcessingResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3D49E0F2F27BB780010FDAC /* PageProcessingResult.swift */; };
+		F3D49E132F27BB990010FDAC /* ImageUploadViewModel+OCR 2.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3D49E112F27BB990010FDAC /* ImageUploadViewModel+OCR 2.swift */; };
+		F3D49E142F27BB990010FDAC /* TaxTipAllocationViewModel 2.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3D49E122F27BB990010FDAC /* TaxTipAllocationViewModel 2.swift */; };
 		F3D49E162F27BBB80010FDAC /* TaxTipAllocationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3D49E152F27BBB80010FDAC /* TaxTipAllocationView.swift */; };
 		F3D49E1B2F27BBDB0010FDAC /* FailedPagesRetryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3D49E172F27BBDB0010FDAC /* FailedPagesRetryView.swift */; };
 		F3D49E1C2F27BBDB0010FDAC /* ImageReorderSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3D49E182F27BBDB0010FDAC /* ImageReorderSheet.swift */; };
@@ -149,6 +151,8 @@
 		F3CAC4902EDB538E004D4E76 /* AnimatedGradientBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnimatedGradientBackground.swift; sourceTree = "<group>"; };
 		F3D49E0D2F27BB3F0010FDAC /* FeeAllocation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeeAllocation.swift; sourceTree = "<group>"; };
 		F3D49E0F2F27BB780010FDAC /* PageProcessingResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageProcessingResult.swift; sourceTree = "<group>"; };
+		F3D49E112F27BB990010FDAC /* ImageUploadViewModel+OCR 2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ImageUploadViewModel+OCR 2.swift"; sourceTree = "<group>"; };
+		F3D49E122F27BB990010FDAC /* TaxTipAllocationViewModel 2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TaxTipAllocationViewModel 2.swift"; sourceTree = "<group>"; };
 		F3D49E152F27BBB80010FDAC /* TaxTipAllocationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaxTipAllocationView.swift; sourceTree = "<group>"; };
 		F3D49E172F27BBDB0010FDAC /* FailedPagesRetryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FailedPagesRetryView.swift; sourceTree = "<group>"; };
 		F3D49E182F27BBDB0010FDAC /* ImageReorderSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageReorderSheet.swift; sourceTree = "<group>"; };
@@ -249,6 +253,8 @@
 				BB0016 /* AssignmentViewModel.swift */,
 				BB0017 /* ReportViewModel.swift */,
 				BB0018 /* HistoryViewModel.swift */,
+				F3D49E112F27BB990010FDAC /* ImageUploadViewModel+OCR 2.swift */,
+				F3D49E122F27BB990010FDAC /* TaxTipAllocationViewModel 2.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -452,6 +458,8 @@
 				AA0014 /* ItemsEditorViewModel.swift in Sources */,
 				AA0015 /* ParticipantsViewModel.swift in Sources */,
 				F348DE0E2EDAB9A8003D37D7 /* HomeView.swift in Sources */,
+				F3D49E132F27BB990010FDAC /* ImageUploadViewModel+OCR 2.swift in Sources */,
+				F3D49E142F27BB990010FDAC /* TaxTipAllocationViewModel 2.swift in Sources */,
 				AA0016 /* AssignmentViewModel.swift in Sources */,
 				F348DE2E2EDAC0A5003D37D7 /* ReportData.swift in Sources */,
 				AA0017 /* ReportViewModel.swift in Sources */,

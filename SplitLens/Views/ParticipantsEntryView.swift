@@ -19,14 +19,20 @@ struct ParticipantsEntryView: View {
     @StateObject private var viewModel = ParticipantsViewModel()
     @StateObject private var itemsViewModel: ItemsEditorViewModel
     
+    // MARK: - Properties
+    
+    /// Extracted fees from the receipt
+    private let extractedFees: [Fee]
+    
     // MARK: - State
     
     @FocusState private var isNameFieldFocused: Bool
     
     // MARK: - Initialization
     
-    init(items: [ReceiptItem], navigationPath: Binding<NavigationPath>) {
-        _itemsViewModel = StateObject(wrappedValue: ItemsEditorViewModel(items: items))
+    init(items: [ReceiptItem], fees: [Fee] = [], navigationPath: Binding<NavigationPath>) {
+        _itemsViewModel = StateObject(wrappedValue: ItemsEditorViewModel(items: items, fees: fees))
+        self.extractedFees = fees
         _navigationPath = navigationPath
     }
     
@@ -43,7 +49,7 @@ struct ParticipantsEntryView: View {
                     SummaryCard(
                         title: "Total Bill",
                         value: itemsViewModel.formattedCalculatedTotal,
-                        icon: "dollary.circle.fill",
+                        icon: "dollarsign.circle.fill",
                         color: .green
                     )
                     .padding(.horizontal)
@@ -92,18 +98,42 @@ struct ParticipantsEntryView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 if viewModel.isValid {
                     Button("Next") {
-                        navigationPath.append(
-                            Route.itemAssignment(
-                                itemsViewModel.items,
-                                viewModel.participants,
-                                viewModel.paidBy,
-                                itemsViewModel.totalAmount
-                            )
-                        )
+                        navigateToNextScreen()
                     }
                     .font(.system(size: 17, weight: .semibold))
                 }
             }
+        }
+    }
+    
+    // MARK: - Navigation
+    
+    /// Navigates to the appropriate next screen based on whether fees exist
+    private func navigateToNextScreen() {
+        HapticFeedback.shared.mediumImpact()
+        
+        // If fees exist, go to TaxTipAllocationView first
+        if !extractedFees.isEmpty {
+            navigationPath.append(
+                Route.taxTipAllocation(
+                    itemsViewModel.items,
+                    extractedFees,
+                    viewModel.participants,
+                    viewModel.paidBy,
+                    itemsViewModel.grandTotal
+                )
+            )
+        } else {
+            // No fees, go directly to item assignment with empty fee allocations
+            navigationPath.append(
+                Route.itemAssignment(
+                    itemsViewModel.items,
+                    viewModel.participants,
+                    viewModel.paidBy,
+                    itemsViewModel.totalAmount,
+                    []
+                )
+            )
         }
     }
     
@@ -262,6 +292,7 @@ struct ParticipantsEntryView: View {
     NavigationStack {
         ParticipantsEntryView(
             items: ReceiptItem.samples,
+            fees: [Fee(type: "tax", amount: 2.50)],
             navigationPath: .constant(NavigationPath())
         )
     }

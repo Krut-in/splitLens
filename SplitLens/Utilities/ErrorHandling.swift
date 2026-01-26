@@ -209,6 +209,7 @@ enum BillSplitError: AppError {
     case calculationFailed(String)
     case roundingError
     case invalidConfiguration
+    case invalidFeeAllocation(String)
     
     var userMessage: String {
         switch self {
@@ -228,6 +229,8 @@ enum BillSplitError: AppError {
             return "Rounding error in calculations. Please review the amounts."
         case .invalidConfiguration:
             return "Invalid split configuration. Please check your data."
+        case .invalidFeeAllocation(let details):
+            return "Invalid fee allocation: \(details)"
         }
     }
     
@@ -249,6 +252,51 @@ enum BillSplitError: AppError {
             return "Sum of splits doesn't match total within tolerance"
         case .invalidConfiguration:
             return "Split configuration validation failed"
+        case .invalidFeeAllocation(let details):
+            return "Fee allocation validation failed: \(details)"
+        }
+    }
+    
+    var errorDescription: String? { userMessage }
+}
+
+// MARK: - Multi-Image Errors
+
+/// Errors that can occur during multi-image receipt processing
+enum MultiImageError: AppError {
+    case tooManyImages(count: Int, max: Int)
+    case partialProcessingFailure(succeeded: Int, failed: Int)
+    case totalValidationFailed(detected: Double, expected: Double)
+    case noImagesProvided
+    case mergeConflict(String)
+    
+    var userMessage: String {
+        switch self {
+        case .tooManyImages(let count, let max):
+            return "Too many images (\(count)). Maximum is \(max)."
+        case .partialProcessingFailure(let succeeded, let failed):
+            return "Processed \(succeeded) page(s). \(failed) page(s) failed."
+        case .totalValidationFailed:
+            return "The detected total doesn't match. Please verify manually."
+        case .noImagesProvided:
+            return "No images provided for processing."
+        case .mergeConflict(let details):
+            return "Could not merge receipt data: \(details)"
+        }
+    }
+    
+    var technicalDetails: String {
+        switch self {
+        case .tooManyImages(let count, let max):
+            return "Image count (\(count)) exceeds maximum (\(max))"
+        case .partialProcessingFailure(let succeeded, let failed):
+            return "Partial OCR failure: \(succeeded) succeeded, \(failed) failed"
+        case .totalValidationFailed(let detected, let expected):
+            return "Total validation: detected=\(detected), expected=\(expected)"
+        case .noImagesProvided:
+            return "Empty images array provided to OCR service"
+        case .mergeConflict(let details):
+            return "Receipt merge conflict: \(details)"
         }
     }
     

@@ -26,8 +26,8 @@ struct ItemsEditorView: View {
     
     // MARK: - Initialization
     
-    init(items: [ReceiptItem], navigationPath: Binding<NavigationPath>) {
-        _viewModel = StateObject(wrappedValue: ItemsEditorViewModel(items: items))
+    init(items: [ReceiptItem], fees: [Fee] = [], navigationPath: Binding<NavigationPath>) {
+        _viewModel = StateObject(wrappedValue: ItemsEditorViewModel(items: items, fees: fees))
         _navigationPath = navigationPath
     }
     
@@ -52,7 +52,7 @@ struct ItemsEditorView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 if viewModel.isValid {
                     Button("Next") {
-                        navigationPath.append(Route.participantsEntry(viewModel.items))
+                        navigationPath.append(Route.participantsEntry(viewModel.items, viewModel.extractedFees))
                     }
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(.green)
@@ -110,6 +110,11 @@ struct ItemsEditorView: View {
             )
             .padding(.horizontal, 16)
             
+            // Page filter (only show for multi-page receipts)
+            if viewModel.hasMultiplePages {
+                pageFilterSection
+            }
+            
             // Warning if applicable
             if let warning = viewModel.discrepancyWarning {
                 HStack(spacing: 8) {
@@ -133,12 +138,44 @@ struct ItemsEditorView: View {
         .background(Color(.systemGroupedBackground))
     }
     
+    // MARK: - Page Filter Section
+    
+    private var pageFilterSection: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                // All pages option
+                PageFilterChip(
+                    title: "All Pages",
+                    isSelected: viewModel.selectedPageFilter == -1,
+                    count: viewModel.items.count
+                ) {
+                    viewModel.selectedPageFilter = -1
+                }
+                
+                // Individual page options
+                ForEach(viewModel.availablePages, id: \.self) { pageIndex in
+                    let pageItems = viewModel.items.filter { $0.sourcePageIndex == pageIndex }
+                    PageFilterChip(
+                        title: "Page \(pageIndex + 1)",
+                        isSelected: viewModel.selectedPageFilter == pageIndex,
+                        count: pageItems.count
+                    ) {
+                        viewModel.selectedPageFilter = pageIndex
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+    }
+    
     // MARK: - Items List
     
     private var itemsScrollView: some View {
         ScrollView {
             LazyVStack(spacing: 12) {
-                ForEach($viewModel.items) { $item in
+                ForEach($viewModel.items.filter { item in
+                    viewModel.selectedPageFilter == -1 || item.wrappedValue.sourcePageIndex == viewModel.selectedPageFilter
+                }) { $item in
                     ItemRowCard(
                         item: $item,
                         onDelete: {
@@ -190,6 +227,24 @@ struct ItemRowCard: View {
     
     var body: some View {
         VStack(spacing: 0) {
+            // Source page badge for multi-image receipts
+            if let pageIndex = item.sourcePageIndex {
+                HStack {
+                    Spacer()
+                    Text("📄 Page \(pageIndex + 1)")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(
+                            Capsule()
+                                .fill(Color.gray.opacity(0.15))
+                        )
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+            }
+            
             // Main content
             VStack(alignment: .leading, spacing: 12) {
                 // Item name row

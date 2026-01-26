@@ -1,5 +1,6 @@
 // Supabase Edge Function for Receipt Data Extraction
 // Using Google Gemini Pro Vision for intelligent structured extraction
+// Supports both single image (backward compatible) and multi-image batch processing
 // Deploy: supabase functions deploy extract-receipt-data --project-ref bnkpaikzslmwdcdmonoa --no-verify-jwt
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
@@ -10,11 +11,24 @@ const corsHeaders = {
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Rate limit delay between API calls (milliseconds)
+const RATE_LIMIT_DELAY_MS = 1000
+
+// Similarity threshold for item deduplication (80%)
+const SIMILARITY_THRESHOLD = 0.8
+
+// Request body types
+interface RequestBody {
+    image?: string        // Legacy single image (backward compatible)
+    images?: string[]     // NEW: Multiple images for batch processing
+}
+
 // Structured response types
 interface ExtractedItem {
     name: string
     quantity: number
     price: number
+    sourcePageIndex?: number  // NEW: Tracks which page the item came from
 }
 
 interface Fee {
@@ -29,6 +43,15 @@ interface ReceiptData {
     total: number | null
     storeName: string | null
     rawText?: string
+    warnings?: string[]  // NEW: Partial failure warnings
+}
+
+// Result from processing a single image
+interface SingleImageResult {
+    success: boolean
+    data?: ReceiptData
+    error?: string
+    pageIndex: number
 }
 
 serve(async (req) => {
@@ -39,17 +62,29 @@ serve(async (req) => {
 
     try {
         // Parse JSON request body
-        const { image } = await req.json()
+        const body: RequestBody = await req.json()
+        const { image, images } = body
 
-        if (!image) {
+        // Validate input
+        if (!image && (!images || images.length === 0)) {
             return new Response(
-                JSON.stringify({ error: 'No image provided' }),
+                JSON.stringify({ error: 'No image provided. Supply either "image" (string) or "images" (string[])' }),
                 { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             )
         }
 
-        // Process with Gemini Vision API
-        const receiptData = await extractReceiptData(image)
+        let receiptData: ReceiptData
+
+        if (images && images.length > 0) {
+            // NEW: Multi-image batch processing
+            console.log(`Processing ${images.length} images in batch mode`)
+            receiptData = await processMultipleImages(images)
+        } else if (image) {
+            // Legacy: Single image processing (backward compatible)
+            receiptData = await extractReceiptData(image)
+        } else {
+            throw new Error('Invalid request body')
+        }
 
         // Return structured receipt data
         return new Response(
@@ -57,10 +92,11 @@ serve(async (req) => {
             { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Receipt extraction failed'
         console.error('Receipt Extraction Error:', error)
         return new Response(
-            JSON.stringify({ error: error.message || 'Receipt extraction failed' }),
+            JSON.stringify({ error: errorMessage }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
     }
@@ -257,4 +293,271 @@ function getMockReceiptData(): ReceiptData {
         total: 65.96,
         storeName: "WALMART SUPERCENTER"
     }
+}
+
+// =============================================================================
+// MULTI-IMAGE PROCESSING
+// =============================================================================
+
+/**
+ * Processes multiple receipt images sequentially, merges results, and handles partial failures
+ * @param images - Array of base64-encoded images
+ * @returns Merged ReceiptData with items from all pages
+ */
+async function processMultipleImages(images: string[]): Promise<ReceiptData> {
+    const results: SingleImageResult[] = []
+    const warnings: string[] = []
+
+    // Process each image sequentially with rate limiting
+    for (let i = 0; i < images.length; i++) {
+        // Add rate limit delay between API calls (skip first image)
+        if (i > 0) {
+            await sleep(RATE_LIMIT_DELAY_MS)
+        }
+
+        console.log(`Processing image ${i + 1}/${images.length}`)
+
+        try {
+            const data = await extractReceiptData(images[i])
+            
+            // Add sourcePageIndex to each item
+            const itemsWithSource: ExtractedItem[] = data.items.map(item => ({
+                ...item,
+                sourcePageIndex: i
+            }))
+            
+            results.push({
+                success: true,
+                data: { ...data, items: itemsWithSource },
+                pageIndex: i
+            })
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+            console.error(`Page ${i + 1} failed:`, errorMessage)
+            
+            warnings.push(`Page ${i + 1} failed: ${errorMessage}`)
+            results.push({
+                success: false,
+                error: errorMessage,
+                pageIndex: i
+            })
+        }
+    }
+
+    // Check if ALL images failed
+    const successfulResults = results.filter(r => r.success && r.data)
+    if (successfulResults.length === 0) {
+        throw new Error(`All ${images.length} images failed to process. ${warnings.join('; ')}`)
+    }
+
+    // Merge successful results
+    return mergeReceiptData(successfulResults, warnings)
+}
+
+/**
+ * Merges receipt data from multiple pages into a single result
+ * @param results - Array of successful processing results
+ * @param warnings - Array of warning messages from failed pages
+ * @returns Merged ReceiptData
+ */
+function mergeReceiptData(results: SingleImageResult[], warnings: string[]): ReceiptData {
+    let allItems: ExtractedItem[] = []
+    let allFees: Fee[] = []
+    let storeName: string | null = null
+    let subtotal: number | null = null
+    let total: number | null = null
+    let rawTexts: string[] = []
+
+    for (const result of results) {
+        if (!result.success || !result.data) continue
+
+        const data = result.data
+
+        // Collect all items (already have sourcePageIndex)
+        allItems.push(...data.items)
+
+        // Collect all fees (will deduplicate later)
+        allFees.push(...data.fees)
+
+        // Use first non-null store name
+        if (storeName === null && data.storeName) {
+            storeName = data.storeName
+        }
+
+        // Use last non-null total (receipt totals typically on last page)
+        if (data.total !== null) {
+            total = data.total
+        }
+
+        // Use last non-null subtotal
+        if (data.subtotal !== null) {
+            subtotal = data.subtotal
+        }
+
+        // Collect raw text if present
+        if (data.rawText) {
+            rawTexts.push(data.rawText)
+        }
+    }
+
+    // Deduplicate items using Levenshtein similarity
+    const deduplicatedItems = deduplicateItems(allItems)
+
+    // Deduplicate fees by type (keep highest amount)
+    const deduplicatedFees = deduplicateFees(allFees)
+
+    // Build final result
+    const mergedData: ReceiptData = {
+        items: deduplicatedItems,
+        fees: deduplicatedFees,
+        subtotal,
+        total,
+        storeName,
+    }
+
+    // Add raw text if present
+    if (rawTexts.length > 0) {
+        mergedData.rawText = rawTexts.join('\n\n--- Page Break ---\n\n')
+    }
+
+    // Add warnings if any pages failed
+    if (warnings.length > 0) {
+        mergedData.warnings = warnings
+    }
+
+    return mergedData
+}
+
+// =============================================================================
+// DEDUPLICATION FUNCTIONS
+// =============================================================================
+
+/**
+ * Deduplicates items using Levenshtein distance for name similarity
+ * Items with >80% name similarity are considered duplicates
+ * @param items - Array of extracted items (may contain duplicates)
+ * @returns Deduplicated array keeping items with higher prices
+ */
+function deduplicateItems(items: ExtractedItem[]): ExtractedItem[] {
+    if (items.length <= 1) return items
+
+    const uniqueItems: ExtractedItem[] = []
+    const processedIndices = new Set<number>()
+
+    for (let i = 0; i < items.length; i++) {
+        if (processedIndices.has(i)) continue
+
+        let bestItem = items[i]
+        processedIndices.add(i)
+
+        // Look for duplicates in remaining items
+        for (let j = i + 1; j < items.length; j++) {
+            if (processedIndices.has(j)) continue
+
+            const similarity = calculateSimilarity(items[i].name, items[j].name)
+
+            if (similarity > SIMILARITY_THRESHOLD) {
+                // Mark as duplicate
+                processedIndices.add(j)
+
+                // Keep the one with higher price (more complete line item)
+                if (items[j].price > bestItem.price) {
+                    bestItem = items[j]
+                }
+            }
+        }
+
+        uniqueItems.push(bestItem)
+    }
+
+    return uniqueItems
+}
+
+/**
+ * Deduplicates fees by type, keeping the highest amount for each type
+ * @param fees - Array of fees (may contain duplicates)
+ * @returns Deduplicated array with one fee per type
+ */
+function deduplicateFees(fees: Fee[]): Fee[] {
+    const feesByType = new Map<string, Fee>()
+
+    for (const fee of fees) {
+        const key = fee.type.toLowerCase()
+        const existing = feesByType.get(key)
+
+        if (!existing || fee.amount > existing.amount) {
+            feesByType.set(key, fee)
+        }
+    }
+
+    return Array.from(feesByType.values())
+}
+
+/**
+ * Calculates similarity between two strings (0.0 to 1.0) using Levenshtein distance
+ * @param s1 - First string
+ * @param s2 - Second string
+ * @returns Similarity ratio (1.0 = identical, 0.0 = completely different)
+ */
+function calculateSimilarity(s1: string, s2: string): number {
+    const str1 = s1.toLowerCase().trim()
+    const str2 = s2.toLowerCase().trim()
+
+    // Exact match
+    if (str1 === str2) return 1.0
+
+    // Empty string handling
+    if (str1.length === 0 || str2.length === 0) return 0.0
+
+    const distance = levenshteinDistance(str1, str2)
+    const maxLength = Math.max(str1.length, str2.length)
+
+    return 1.0 - (distance / maxLength)
+}
+
+/**
+ * Calculates Levenshtein (edit) distance between two strings
+ * @param s1 - First string
+ * @param s2 - Second string
+ * @returns Number of single-character edits needed to transform s1 into s2
+ */
+function levenshteinDistance(s1: string, s2: string): number {
+    const m = s1.length
+    const n = s2.length
+
+    if (m === 0) return n
+    if (n === 0) return m
+
+    // Create distance matrix
+    const matrix: number[][] = []
+    
+    for (let i = 0; i <= m; i++) {
+        matrix[i] = [i]
+    }
+    
+    for (let j = 0; j <= n; j++) {
+        matrix[0][j] = j
+    }
+
+    // Fill in the rest of the matrix
+    for (let i = 1; i <= m; i++) {
+        for (let j = 1; j <= n; j++) {
+            const cost = s1[i - 1] === s2[j - 1] ? 0 : 1
+            matrix[i][j] = Math.min(
+                matrix[i - 1][j] + 1,      // deletion
+                matrix[i][j - 1] + 1,      // insertion
+                matrix[i - 1][j - 1] + cost // substitution
+            )
+        }
+    }
+
+    return matrix[m][n]
+}
+
+/**
+ * Helper function to sleep for specified milliseconds
+ * @param ms - Milliseconds to sleep
+ */
+function sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms))
 }

@@ -61,7 +61,7 @@ final class DependencyContainer {
         }
         
         // These services are the same regardless of config
-        self.billSplitEngine = BillSplitEngine()
+        self.billSplitEngine = AdvancedBillSplitEngine()
         self.reportEngine = ReportGenerationEngine()
     }
     

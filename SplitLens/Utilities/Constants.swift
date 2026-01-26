@@ -101,6 +101,31 @@ enum AppConstants {
         // Add more UI-related constants as needed
     }
     
+    // MARK: - Multi-Image Configuration
+    
+    /// Constants for multi-image receipt processing
+    enum MultiImage {
+        /// Maximum number of images allowed per receipt
+        static let maxImages: Int = 10
+        
+        /// Threshold to warn about API costs
+        static let warningThreshold: Int = 5
+        
+        /// Delay between API requests (nanoseconds) - 1 second
+        static let delayBetweenRequests: UInt64 = 1_000_000_000
+    }
+    
+    // MARK: - Fee Allocation Configuration
+    
+    /// Constants for fee allocation
+    enum FeeAllocation {
+        /// Default strategy for allocating fees
+        static let defaultStrategy: FeeAllocationStrategy = .proportional
+        
+        /// Supported fee types for allocation
+        static let supportedFeeTypes = ["tax", "tip", "delivery", "service"]
+    }
+    
     // MARK: - Formatters
     
     /// Cached formatters to improve performance by avoiding repeated instantiation

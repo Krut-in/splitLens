@@ -3,6 +3,7 @@
 //  SplitLens
 //
 //  Models for structured receipt data returned by Gemini Vision API
+//  with multi-image support for source page tracking
 //
 
 import Foundation
@@ -37,7 +38,7 @@ struct StructuredReceiptData: Codable {
 
 // MARK: - Extracted Item
 
-/// A single item extracted from the receipt
+/// A single item extracted from the receipt with optional source page tracking
 struct ExtractedItem: Codable {
     /// Product name/description
     let name: String
@@ -49,13 +50,47 @@ struct ExtractedItem: Codable {
     /// Example: If "2 x $7.05 = $14.10", this would be 14.10
     let price: Double
     
+    /// Source page index for multi-image receipts (0-based)
+    /// nil for single-image receipts or when not tracked
+    let sourcePageIndex: Int?
+    
+    // MARK: - Coding Keys
+    
+    enum CodingKeys: String, CodingKey {
+        case name
+        case quantity
+        case price
+        case sourcePageIndex
+    }
+    
+    // MARK: - Initialization
+    
+    /// Full initializer with all properties
+    init(name: String, quantity: Int, price: Double, sourcePageIndex: Int? = nil) {
+        self.name = name
+        self.quantity = quantity
+        self.price = price
+        self.sourcePageIndex = sourcePageIndex
+    }
+    
+    /// Decoder initializer with default for sourcePageIndex
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        name = try container.decode(String.self, forKey: .name)
+        quantity = try container.decode(Int.self, forKey: .quantity)
+        price = try container.decode(Double.self, forKey: .price)
+        sourcePageIndex = try container.decodeIfPresent(Int.self, forKey: .sourcePageIndex)
+    }
+    
     /// Convert to ReceiptItem for use in the app
+    /// Preserves sourcePageIndex for multi-image tracking
     func toReceiptItem() -> ReceiptItem {
         ReceiptItem(
             name: name,
             quantity: quantity,
             price: price,
-            assignedTo: []
+            assignedTo: [],
+            sourcePageIndex: sourcePageIndex
         )
     }
 }
@@ -63,7 +98,7 @@ struct ExtractedItem: Codable {
 // MARK: - Fee
 
 /// Additional fees on the receipt (delivery, service, tax, tip)
-struct Fee: Codable {
+struct Fee: Codable, Equatable {
     /// Type of fee: "delivery", "service", "tax", "tip", "other"
     let type: String
     
@@ -81,6 +116,11 @@ struct Fee: Codable {
         }
     }
     
+    /// Fee type enumeration for type-safe handling
+    var feeType: FeeType {
+        FeeType(rawValue: type.lowercased()) ?? .other
+    }
+    
     /// Convert to ReceiptItem for display
     func toReceiptItem() -> ReceiptItem {
         ReceiptItem(
@@ -89,6 +129,27 @@ struct Fee: Codable {
             price: amount,
             assignedTo: []
         )
+    }
+}
+
+// MARK: - Fee Type Enum
+
+/// Type-safe fee type enumeration
+enum FeeType: String, Codable, CaseIterable {
+    case delivery
+    case service
+    case tax
+    case tip
+    case other
+    
+    var displayName: String {
+        switch self {
+        case .delivery: return "Delivery Fee"
+        case .service: return "Service Fee"
+        case .tax: return "Tax"
+        case .tip: return "Tip"
+        case .other: return "Other Fee"
+        }
     }
 }
 
