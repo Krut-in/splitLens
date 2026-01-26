@@ -160,17 +160,6 @@ final class BillSplitEngine: BillSplitEngineProtocol {
             ))
         }
         
-        // Warning if variance is between 1% and 10%
-        if variancePercent > 1.0 {
-            warnings.append(BillSplitWarning(
-                type: .totalVariance(
-                    calculated: calculatedTotal,
-                    expected: session.totalAmount,
-                    variance: variancePercent
-                )
-            ))
-        }
-        
         // STEP 2.5: Floating point precision fix - Redistribute cents
         // This ensures splits add up exactly to the total (e.g., $10.00 split 3 ways = $3.33 + $3.33 + $3.34, not $9.99)
         let adjustedTotals = distributeCents(
