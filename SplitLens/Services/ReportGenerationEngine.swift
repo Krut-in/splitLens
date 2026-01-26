@@ -135,7 +135,7 @@ final class ReportGenerationEngine: ReportGenerationEngineProtocol {
                         report += "  • \(item.name): \(item.formattedTotalPrice)\n"
                     }
                 }
-                report += "  Subtotal: \(formatCurrency(totalOwed))\n"
+                report += "  Subtotal: \(CurrencyFormatter.shared.format(totalOwed))\n"
             }
             report += "\n"
         }
@@ -181,12 +181,6 @@ final class ReportGenerationEngine: ReportGenerationEngineProtocol {
         summary += "\n- Sent via SplitLens 📱"
         
         return summary
-    }
-    
-    // MARK: - Helper Methods
-    
-    private func formatCurrency(_ value: Double) -> String {
-        CurrencyFormatter.shared.format(value)
     }
     
     // MARK: - Export Formats

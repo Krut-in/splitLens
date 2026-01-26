@@ -74,22 +74,22 @@ final class ItemsEditorViewModel: ObservableObject {
     
     /// Formatted calculated total
     var formattedCalculatedTotal: String {
-        formatCurrency(calculatedTotal)
+        CurrencyFormatter.shared.format(calculatedTotal)
     }
     
     /// Formatted fees total
     var formattedFeesTotal: String {
-        formatCurrency(totalFees)
+        CurrencyFormatter.shared.format(totalFees)
     }
     
     /// Formatted grand total
     var formattedGrandTotal: String {
-        formatCurrency(grandTotal)
+        CurrencyFormatter.shared.format(grandTotal)
     }
     
     /// Formatted entered total
     var formattedEnteredTotal: String {
-        formatCurrency(totalAmount)
+        CurrencyFormatter.shared.format(totalAmount)
     }
     
     /// Difference between entered and calculated totals
@@ -105,7 +105,7 @@ final class ItemsEditorViewModel: ObservableObject {
     /// Discrepancy warning message
     var discrepancyWarning: String? {
         guard hasTotalDiscrepancy else { return nil }
-        let diff = formatCurrency(abs(totalDiscrepancy))
+        let diff = CurrencyFormatter.shared.format(abs(totalDiscrepancy))
         if totalDiscrepancy > 0 {
             return "Entered total is \(diff) more than items"
         } else {
@@ -249,11 +249,6 @@ final class ItemsEditorViewModel: ObservableObject {
         validate().isEmpty
     }
     
-    // MARK: - Helpers
-    
-    private func formatCurrency(_ value: Double) -> String {
-        CurrencyFormatter.shared.format(value)
-    }
 }
 
 // MARK: - Item Creation Helper

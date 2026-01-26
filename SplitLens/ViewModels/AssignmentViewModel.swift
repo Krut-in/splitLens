@@ -240,11 +240,7 @@ final class AssignmentViewModel: ObservableObject {
     
     /// Formatted total for participant
     func formattedTotal(for participant: String) -> String {
-        formatCurrency(totalOwed(by: participant))
-    }
-    
-    private func formatCurrency(_ value: Double) -> String {
-        CurrencyFormatter.shared.format(value)
+        CurrencyFormatter.shared.format(totalOwed(by: participant))
     }
 }
 

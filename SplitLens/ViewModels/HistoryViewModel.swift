@@ -241,11 +241,6 @@ final class HistoryViewModel: ObservableObject {
         sessions(in: dateRange).reduce(0.0) { $0 + $1.totalAmount }
     }
     
-    // MARK: - Helpers
-    
-    private func formatCurrency(_ value: Double) -> String {
-        CurrencyFormatter.shared.format(value)
-    }
 }
 
 // MARK: - Sample Data
