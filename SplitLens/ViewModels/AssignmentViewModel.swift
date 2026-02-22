@@ -285,6 +285,8 @@ final class AssignmentViewModel: ObservableObject {
         }
         smartAssignedItemIds.removeAll()
         suggestions.removeAll()
+        // Reset so loadSmartSuggestions() can run again if re-enabled
+        suggestionsLoaded = false
     }
 
     /// Returns the suggestion for a given item, if any

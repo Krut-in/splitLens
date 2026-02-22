@@ -106,12 +106,17 @@ struct ItemAssignmentView: View {
                         })
                     }
 
-                    if !viewModel.suggestionsLoaded {
-                        Toggle(
-                            "Smart Suggestions",
-                            isOn: $viewModel.smartSuggestionsEnabled
-                        )
-                    }
+                    Toggle("Smart Suggestions", isOn: Binding(
+                        get: { viewModel.smartSuggestionsEnabled },
+                        set: { enabled in
+                            viewModel.smartSuggestionsEnabled = enabled
+                            if enabled {
+                                Task { await viewModel.loadSmartSuggestions() }
+                            } else {
+                                viewModel.clearSmartSuggestions()
+                            }
+                        }
+                    ))
                 } label: {
                     Image(systemName: "ellipsis.circle")
                         .font(.system(size: 18))
