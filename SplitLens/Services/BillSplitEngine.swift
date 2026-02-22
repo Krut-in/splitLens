@@ -37,7 +37,8 @@ struct BillSplitWarning {
 struct BillSplitResult {
     let splits: [SplitLog]
     let warnings: [BillSplitWarning]
-    
+    let personBreakdowns: [PersonBreakdown]
+
     var hasWarnings: Bool {
         !warnings.isEmpty
     }
@@ -75,72 +76,74 @@ final class BillSplitEngine: BillSplitEngineProtocol {
     /// - Throws: BillSplitError for critical validation failures
     func computeSplits(session: ReceiptSession) throws -> BillSplitResult {
         var warnings: [BillSplitWarning] = []
-        
+
         // VALIDATION: Check basic requirements
         guard !session.participants.isEmpty else {
             throw BillSplitError.noParticipants
         }
-        
+
         guard !session.items.isEmpty else {
             throw BillSplitError.noItems
         }
-        
+
         guard session.participants.contains(session.paidBy) else {
             throw BillSplitError.invalidPayer(session.paidBy)
         }
-        
+
         // Check for unassigned items (warning only)
         let unassignedCount = session.items.filter { !$0.isAssigned }.count
         if unassignedCount > 0 {
             warnings.append(BillSplitWarning(type: .unassignedItems(count: unassignedCount)))
         }
-        
-        // Edge case: Single participant
-        if session.participants.count == 1 {
-            warnings.append(BillSplitWarning(type: .singleParticipant))
-            return BillSplitResult(splits: [], warnings: warnings)
-        }
-        
+
         // STEP 1: Calculate what each person owes based on their assigned items
         var personTotals: [String: Double] = [:]
-        
-        // Initialize all participants to $0.00
+        var itemChargesMap: [String: [ItemCharge]] = [:]
+
         for participant in session.participants {
             personTotals[participant] = 0.0
+            itemChargesMap[participant] = []
         }
-        
-        // Calculate individual shares
+
         for item in session.items {
             guard item.isAssigned else { continue }
-            
-            // Handle quantity: total item cost = price × quantity
+
             let totalItemCost = item.totalPrice
-            
-            // Check if assigned to "All"
+
             if item.assignedTo.contains("All") {
-                // Divide equally among ALL participants
-                let costPerPerson = totalItemCost / Double(session.participants.count)
+                let splitAmong = session.participants.count
+                let costPerPerson = totalItemCost / Double(splitAmong)
                 for participant in session.participants {
                     personTotals[participant, default: 0.0] += costPerPerson
+                    itemChargesMap[participant, default: []].append(ItemCharge(
+                        itemName: item.name,
+                        itemFullPrice: totalItemCost,
+                        splitAmong: splitAmong,
+                        amount: costPerPerson
+                    ))
                 }
             } else {
-                // Divide only among assigned people
-                let assignedCount = item.assignedTo.count
-                guard assignedCount > 0 else { continue }
-                
-                let costPerPerson = totalItemCost / Double(assignedCount)
+                let splitAmong = item.assignedTo.count
+                guard splitAmong > 0 else { continue }
+
+                let costPerPerson = totalItemCost / Double(splitAmong)
                 for person in item.assignedTo {
                     personTotals[person, default: 0.0] += costPerPerson
+                    itemChargesMap[person, default: []].append(ItemCharge(
+                        itemName: item.name,
+                        itemFullPrice: totalItemCost,
+                        splitAmong: splitAmong,
+                        amount: costPerPerson
+                    ))
                 }
             }
         }
-        
+
         // STEP 2: Validate totals (error at >10% variance, warn at > 1%)
         let calculatedTotal = personTotals.values.reduce(0.0, +)
         let difference = abs(calculatedTotal - session.totalAmount)
-        let variancePercent = (difference / session.totalAmount) * 100.0
-        
-        // Hard error if variance exceeds 10%
+        let variancePercent = session.totalAmount > 0 ? (difference / session.totalAmount) * 100.0 : 0.0
+
         if variancePercent > 10.0 {
             throw BillSplitError.totalsDoNotMatch(
                 calculated: calculatedTotal,
@@ -148,8 +151,7 @@ final class BillSplitEngine: BillSplitEngineProtocol {
                 variance: variancePercent
             )
         }
-        
-        // Warning if variance is between 1% and 10%
+
         if variancePercent > 1.0 {
             warnings.append(BillSplitWarning(
                 type: .totalVariance(
@@ -159,24 +161,34 @@ final class BillSplitEngine: BillSplitEngineProtocol {
                 )
             ))
         }
-        
-        // STEP 2.5: Floating point precision fix - Redistribute cents
-        // This ensures splits add up exactly to the total (e.g., $10.00 split 3 ways = $3.33 + $3.33 + $3.34, not $9.99)
+
+        // STEP 2.5: Redistribute cents — ensures splits sum exactly to total
         let adjustedTotals = distributeCents(
             total: session.totalAmount,
             among: session.participants,
             baseAmounts: personTotals
         )
-        
+
+        // Edge case: Single participant (no splits needed, but still build breakdown)
+        if session.participants.count == 1 {
+            warnings.append(BillSplitWarning(type: .singleParticipant))
+            let payer = session.paidBy
+            let breakdown = PersonBreakdown(
+                person: payer,
+                itemCharges: itemChargesMap[payer] ?? [],
+                feeCharges: [],
+                settlementAmount: 0.0
+            )
+            return BillSplitResult(splits: [], warnings: warnings, personBreakdowns: [breakdown])
+        }
+
         // STEP 3: Generate settlement logs
-        // Everyone owes the payer (simplified debt model)
         var splits: [SplitLog] = []
         let payer = session.paidBy
-        
+
         for participant in session.participants where participant != payer {
             let amountOwed = adjustedTotals[participant] ?? 0.0
-            
-            // Filter out insignificant amounts (< $0.01)
+
             if amountOwed > 0.01 {
                 let split = SplitLog(
                     from: participant,
@@ -192,11 +204,34 @@ final class BillSplitEngine: BillSplitEngineProtocol {
                 splits.append(split)
             }
         }
-        
-        // Sort by amount (largest first)
+
         splits.sort { $0.amount > $1.amount }
-        
-        return BillSplitResult(splits: splits, warnings: warnings)
+
+        // STEP 4: Build per-person breakdowns
+        let totalSplitAmount = splits.reduce(0.0) { $0 + $1.amount }
+        let payerAdjustedTotal = adjustedTotals[payer] ?? 0.0
+        var personBreakdowns: [PersonBreakdown] = []
+
+        for participant in session.participants {
+            let settlementAmount: Double
+            if participant == payer {
+                // Payer is owed the difference between what they paid and their share
+                settlementAmount = -(session.totalAmount - payerAdjustedTotal)
+            } else if let split = splits.first(where: { $0.from == participant }) {
+                settlementAmount = split.amount
+            } else {
+                settlementAmount = 0.0
+            }
+
+            personBreakdowns.append(PersonBreakdown(
+                person: participant,
+                itemCharges: itemChargesMap[participant] ?? [],
+                feeCharges: [],
+                settlementAmount: settlementAmount
+            ))
+        }
+
+        return BillSplitResult(splits: splits, warnings: warnings, personBreakdowns: personBreakdowns)
     }
     
     // MARK: - Helper Methods
@@ -374,21 +409,14 @@ final class AdvancedBillSplitEngine: BillSplitEngineProtocol {
     /// - Throws: BillSplitError for validation failures
     func computeSplitsWithFees(session: ReceiptSession) throws -> BillSplitResult {
         var warnings: [BillSplitWarning] = []
-        
-        // VALIDATION: Check basic requirements
-        guard !session.participants.isEmpty else {
-            throw BillSplitError.noParticipants
-        }
-        
-        guard !session.items.isEmpty else {
-            throw BillSplitError.noItems
-        }
-        
+
+        // VALIDATION
+        guard !session.participants.isEmpty else { throw BillSplitError.noParticipants }
+        guard !session.items.isEmpty else { throw BillSplitError.noItems }
         guard session.participants.contains(session.paidBy) else {
             throw BillSplitError.invalidPayer(session.paidBy)
         }
-        
-        // Validate fee allocations
+
         for allocation in session.feeAllocations {
             if allocation.strategy == .manual {
                 guard let assignees = allocation.manualAssignments, !assignees.isEmpty else {
@@ -398,115 +426,141 @@ final class AdvancedBillSplitEngine: BillSplitEngineProtocol {
                 }
             }
         }
-        
-        // Check for unassigned items (warning only)
+
         let unassignedCount = session.items.filter { !$0.isAssigned }.count
         if unassignedCount > 0 {
             warnings.append(BillSplitWarning(type: .unassignedItems(count: unassignedCount)))
         }
-        
-        // Edge case: Single participant
-        if session.participants.count == 1 {
-            warnings.append(BillSplitWarning(type: .singleParticipant))
-            return BillSplitResult(splits: [], warnings: warnings)
-        }
-        
-        // STEP 1: Calculate base item totals per person
+
+        // STEP 1: Calculate base item totals per person and capture item charges
         var personTotals: [String: Double] = [:]
-        var itemBreakdowns: [String: [(item: String, amount: Double)]] = [:]
-        
-        // Initialize all participants
+        var itemChargesMap: [String: [ItemCharge]] = [:]
+        var legacyItemBreakdowns: [String: [(item: String, amount: Double)]] = [:]
+
         for participant in session.participants {
             personTotals[participant] = 0.0
-            itemBreakdowns[participant] = []
+            itemChargesMap[participant] = []
+            legacyItemBreakdowns[participant] = []
         }
-        
-        // Calculate individual item shares
+
         for item in session.items {
             guard item.isAssigned else { continue }
-            
             let totalItemCost = item.totalPrice
-            
+
             if item.assignedTo.contains("All") {
-                let costPerPerson = totalItemCost / Double(session.participants.count)
+                let splitAmong = session.participants.count
+                let costPerPerson = totalItemCost / Double(splitAmong)
                 for participant in session.participants {
                     personTotals[participant, default: 0.0] += costPerPerson
-                    itemBreakdowns[participant, default: []]
-                        .append((item: item.name, amount: costPerPerson))
+                    itemChargesMap[participant, default: []].append(ItemCharge(
+                        itemName: item.name,
+                        itemFullPrice: totalItemCost,
+                        splitAmong: splitAmong,
+                        amount: costPerPerson
+                    ))
+                    legacyItemBreakdowns[participant, default: []].append((item: item.name, amount: costPerPerson))
                 }
             } else {
-                let assignedCount = item.assignedTo.count
-                guard assignedCount > 0 else { continue }
-                
-                let costPerPerson = totalItemCost / Double(assignedCount)
+                let splitAmong = item.assignedTo.count
+                guard splitAmong > 0 else { continue }
+                let costPerPerson = totalItemCost / Double(splitAmong)
                 for person in item.assignedTo {
                     personTotals[person, default: 0.0] += costPerPerson
-                    itemBreakdowns[person, default: []]
-                        .append((item: item.name, amount: costPerPerson))
+                    itemChargesMap[person, default: []].append(ItemCharge(
+                        itemName: item.name,
+                        itemFullPrice: totalItemCost,
+                        splitAmong: splitAmong,
+                        amount: costPerPerson
+                    ))
+                    legacyItemBreakdowns[person, default: []].append((item: item.name, amount: costPerPerson))
                 }
             }
         }
-        
-        // STEP 2: Allocate fees according to their strategies
-        var feeBreakdowns: [String: [(fee: String, amount: Double)]] = [:]
+
+        // STEP 2: Allocate fees and capture fee charges
+        var feeChargesMap: [String: [FeeCharge]] = [:]
+        var legacyFeeBreakdowns: [String: [(fee: String, amount: Double)]] = [:]
         for participant in session.participants {
-            feeBreakdowns[participant] = []
+            feeChargesMap[participant] = []
+            legacyFeeBreakdowns[participant] = []
         }
-        
+
         let totalItemSpending = personTotals.values.reduce(0, +)
-        
+
         for allocation in session.feeAllocations {
             switch allocation.strategy {
             case .proportional:
-                // Distribute proportionally by current spending ratio
                 guard totalItemSpending > 0 else { continue }
                 for (person, spending) in personTotals {
                     let ratio = spending / totalItemSpending
                     let feeAmount = allocation.fee.amount * ratio
                     personTotals[person]! += feeAmount
-                    feeBreakdowns[person, default: []]
-                        .append((fee: allocation.fee.displayName, amount: feeAmount))
+                    feeChargesMap[person, default: []].append(FeeCharge(
+                        feeName: allocation.fee.displayName,
+                        feeFullAmount: allocation.fee.amount,
+                        strategy: .proportional,
+                        amount: feeAmount
+                    ))
+                    legacyFeeBreakdowns[person, default: []].append((fee: allocation.fee.displayName, amount: feeAmount))
                 }
-                
+
             case .equal:
-                // Divide equally among all participants
                 let perPerson = allocation.fee.amount / Double(session.participants.count)
                 for person in session.participants {
                     personTotals[person, default: 0] += perPerson
-                    feeBreakdowns[person, default: []]
-                        .append((fee: allocation.fee.displayName, amount: perPerson))
+                    feeChargesMap[person, default: []].append(FeeCharge(
+                        feeName: allocation.fee.displayName,
+                        feeFullAmount: allocation.fee.amount,
+                        strategy: .equal,
+                        amount: perPerson
+                    ))
+                    legacyFeeBreakdowns[person, default: []].append((fee: allocation.fee.displayName, amount: perPerson))
                 }
-                
+
             case .manual:
-                // Assign to specified people only
-                guard let assignees = allocation.manualAssignments, !assignees.isEmpty else {
-                    continue
-                }
+                guard let assignees = allocation.manualAssignments, !assignees.isEmpty else { continue }
                 let perPerson = allocation.fee.amount / Double(assignees.count)
                 for person in assignees {
                     personTotals[person, default: 0] += perPerson
-                    feeBreakdowns[person, default: []]
-                        .append((fee: allocation.fee.displayName, amount: perPerson))
+                    feeChargesMap[person, default: []].append(FeeCharge(
+                        feeName: allocation.fee.displayName,
+                        feeFullAmount: allocation.fee.amount,
+                        strategy: .manual,
+                        amount: perPerson
+                    ))
+                    legacyFeeBreakdowns[person, default: []].append((fee: allocation.fee.displayName, amount: perPerson))
                 }
             }
         }
-        
-        // STEP 3: Generate settlement logs with detailed explanations
+
+        // Edge case: Single participant (no splits needed, but still build breakdown)
+        if session.participants.count == 1 {
+            warnings.append(BillSplitWarning(type: .singleParticipant))
+            let payer = session.paidBy
+            let breakdown = PersonBreakdown(
+                person: payer,
+                itemCharges: itemChargesMap[payer] ?? [],
+                feeCharges: feeChargesMap[payer] ?? [],
+                settlementAmount: 0.0
+            )
+            return BillSplitResult(splits: [], warnings: warnings, personBreakdowns: [breakdown])
+        }
+
+        // STEP 3: Generate settlement logs
         var splits: [SplitLog] = []
         let payer = session.paidBy
-        
+
         for participant in session.participants where participant != payer {
             let amountOwed = personTotals[participant] ?? 0.0
-            
-            // Filter out insignificant amounts
+
             if amountOwed > 0.01 {
                 let explanation = generateDetailedExplanationWithFees(
                     for: participant,
-                    itemBreakdowns: itemBreakdowns[participant] ?? [],
-                    feeBreakdowns: feeBreakdowns[participant] ?? [],
+                    itemBreakdowns: legacyItemBreakdowns[participant] ?? [],
+                    feeBreakdowns: legacyFeeBreakdowns[participant] ?? [],
                     totalOwed: amountOwed
                 )
-                
+
                 let split = SplitLog(
                     from: participant,
                     to: payer,
@@ -516,11 +570,35 @@ final class AdvancedBillSplitEngine: BillSplitEngineProtocol {
                 splits.append(split)
             }
         }
-        
-        // Sort by amount (largest first)
+
         splits.sort { $0.amount > $1.amount }
-        
-        return BillSplitResult(splits: splits, warnings: warnings)
+
+        // STEP 4: Build per-person breakdowns
+        let totalSplitAmount = splits.reduce(0.0) { $0 + $1.amount }
+        let payerTotal = personTotals[payer] ?? 0.0
+        var personBreakdowns: [PersonBreakdown] = []
+
+        for participant in session.participants {
+            let settlementAmount: Double
+            if participant == payer {
+                settlementAmount = -(session.totalAmount - payerTotal)
+            } else if let split = splits.first(where: { $0.from == participant }) {
+                settlementAmount = split.amount
+            } else {
+                settlementAmount = 0.0
+            }
+
+            personBreakdowns.append(PersonBreakdown(
+                person: participant,
+                itemCharges: itemChargesMap[participant] ?? [],
+                feeCharges: feeChargesMap[participant] ?? [],
+                settlementAmount: settlementAmount
+            ))
+        }
+
+        _ = totalSplitAmount // suppress unused warning; used implicitly via splits
+
+        return BillSplitResult(splits: splits, warnings: warnings, personBreakdowns: personBreakdowns)
     }
     
     /// Generates detailed explanation including fee breakdown

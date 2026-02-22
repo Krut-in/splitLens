@@ -623,7 +623,7 @@ final class BillSplitEngineTests: XCTestCase {
         )
         
         let advancedEngine = AdvancedBillSplitEngine()
-        
+
         XCTAssertThrowsError(try advancedEngine.computeSplits(session: session)) { error in
             if case BillSplitError.invalidFeeAllocation = error {
                 // Expected
@@ -631,5 +631,283 @@ final class BillSplitEngineTests: XCTestCase {
                 XCTFail("Expected invalidFeeAllocation error")
             }
         }
+    }
+
+    // MARK: - PersonBreakdown Tests
+
+    func testPersonBreakdownsReturned() throws {
+        let items = [
+            ReceiptItem(name: "Pizza", quantity: 1, price: 30.00, assignedTo: ["Alice", "Bob", "Carol"])
+        ]
+        let session = ReceiptSession(
+            participants: ["Alice", "Bob", "Carol"],
+            totalAmount: 30.00,
+            paidBy: "Alice",
+            items: items
+        )
+        let result = try engine.computeSplits(session: session)
+        XCTAssertFalse(result.personBreakdowns.isEmpty, "personBreakdowns should not be empty")
+        XCTAssertEqual(result.personBreakdowns.count, 3)
+    }
+
+    func testPersonBreakdownsIncludeAllParticipants() throws {
+        let items = [
+            ReceiptItem(name: "Salad", quantity: 1, price: 12.00, assignedTo: ["Alice"]),
+            ReceiptItem(name: "Burger", quantity: 1, price: 15.00, assignedTo: ["Bob"]),
+            ReceiptItem(name: "Pizza", quantity: 1, price: 18.00, assignedTo: ["Carol"])
+        ]
+        let session = ReceiptSession(
+            participants: ["Alice", "Bob", "Carol"],
+            totalAmount: 45.00,
+            paidBy: "Alice",
+            items: items
+        )
+        let result = try engine.computeSplits(session: session)
+        let persons = result.personBreakdowns.map { $0.person }
+        XCTAssertTrue(persons.contains("Alice"))
+        XCTAssertTrue(persons.contains("Bob"))
+        XCTAssertTrue(persons.contains("Carol"))
+    }
+
+    func testPersonBreakdownsMatchSplitTotals() throws {
+        // Non-payer totalAmount should approximately match their split amount
+        let items = [
+            ReceiptItem(name: "Alice's Salad", quantity: 1, price: 20.00, assignedTo: ["Alice"]),
+            ReceiptItem(name: "Bob's Burger", quantity: 1, price: 30.00, assignedTo: ["Bob"])
+        ]
+        let session = ReceiptSession(
+            participants: ["Alice", "Bob"],
+            totalAmount: 50.00,
+            paidBy: "Alice",
+            items: items
+        )
+        let result = try engine.computeSplits(session: session)
+
+        let bobBreakdown = result.personBreakdowns.first { $0.person == "Bob" }
+        let bobSplit = result.splits.first { $0.from == "Bob" }
+        XCTAssertNotNil(bobBreakdown)
+        XCTAssertNotNil(bobSplit)
+        XCTAssertEqual(bobBreakdown!.totalAmount, bobSplit!.amount, accuracy: 0.01)
+    }
+
+    func testPersonBreakdownsWithFees() throws {
+        // Fee charges should appear when feeAllocations are present
+        let items = [
+            ReceiptItem(name: "Pizza", quantity: 1, price: 20.00, assignedTo: ["Alice", "Bob"])
+        ]
+        let feeAllocations = [
+            FeeAllocation(fee: Fee(type: "tax", amount: 2.00), strategy: .equal)
+        ]
+        let session = ReceiptSession(
+            participants: ["Alice", "Bob"],
+            totalAmount: 22.00,
+            paidBy: "Alice",
+            items: items,
+            computedSplits: [],
+            feeAllocations: feeAllocations
+        )
+        let advancedEngine = AdvancedBillSplitEngine()
+        let result = try advancedEngine.computeSplits(session: session)
+
+        let bobBreakdown = result.personBreakdowns.first { $0.person == "Bob" }
+        XCTAssertNotNil(bobBreakdown)
+        XCTAssertFalse(bobBreakdown!.feeCharges.isEmpty, "Bob should have fee charges")
+        XCTAssertEqual(bobBreakdown!.feeCharges[0].feeName, "Tax")
+        XCTAssertEqual(bobBreakdown!.feeCharges[0].amount, 1.00, accuracy: 0.01)
+    }
+
+    func testLegacySessionRecomputation() throws {
+        // A session with empty personBreakdowns can be recomputed by the engine
+        let items = [
+            ReceiptItem(name: "Shared", quantity: 1, price: 20.00, assignedTo: ["Alice", "Bob"])
+        ]
+        let session = ReceiptSession(
+            participants: ["Alice", "Bob"],
+            totalAmount: 20.00,
+            paidBy: "Alice",
+            items: items,
+            personBreakdowns: []  // legacy: no breakdowns stored
+        )
+        XCTAssertTrue(session.personBreakdowns.isEmpty, "Session should start with empty breakdowns")
+
+        let result = try engine.computeSplits(session: session)
+        XCTAssertFalse(result.personBreakdowns.isEmpty, "Engine should produce breakdowns for legacy session")
+        XCTAssertEqual(result.personBreakdowns.count, 2)
+    }
+
+    func testPayerSettlementAmountIsNegative() throws {
+        let items = [
+            ReceiptItem(name: "Pizza", quantity: 1, price: 30.00, assignedTo: ["Alice", "Bob", "Carol"])
+        ]
+        let session = ReceiptSession(
+            participants: ["Alice", "Bob", "Carol"],
+            totalAmount: 30.00,
+            paidBy: "Alice",
+            items: items
+        )
+        let result = try engine.computeSplits(session: session)
+        let aliceBreakdown = result.personBreakdowns.first { $0.person == "Alice" }
+        XCTAssertNotNil(aliceBreakdown)
+        // Payer is owed money — settlement should be negative
+        XCTAssertLessThan(aliceBreakdown!.settlementAmount, 0)
+    }
+
+    func testNonPayerSettlementAmountIsPositive() throws {
+        let items = [
+            ReceiptItem(name: "Pizza", quantity: 1, price: 30.00, assignedTo: ["Alice", "Bob"])
+        ]
+        let session = ReceiptSession(
+            participants: ["Alice", "Bob"],
+            totalAmount: 30.00,
+            paidBy: "Alice",
+            items: items
+        )
+        let result = try engine.computeSplits(session: session)
+        let bobBreakdown = result.personBreakdowns.first { $0.person == "Bob" }
+        XCTAssertNotNil(bobBreakdown)
+        // Non-payer owes money — settlement should be positive
+        XCTAssertGreaterThan(bobBreakdown!.settlementAmount, 0)
+    }
+
+    func testItemChargeFormula() throws {
+        // ItemCharge.amount should equal itemFullPrice / splitAmong
+        let items = [
+            ReceiptItem(name: "Pizza", quantity: 1, price: 24.00, assignedTo: ["Alice", "Bob", "Carol"])
+        ]
+        let session = ReceiptSession(
+            participants: ["Alice", "Bob", "Carol"],
+            totalAmount: 24.00,
+            paidBy: "Alice",
+            items: items
+        )
+        let result = try engine.computeSplits(session: session)
+        for breakdown in result.personBreakdowns {
+            for charge in breakdown.itemCharges {
+                let expected = charge.itemFullPrice / Double(charge.splitAmong)
+                XCTAssertEqual(charge.amount, expected, accuracy: 0.001)
+            }
+        }
+    }
+
+    func testTotalAmountAccountedForAll() throws {
+        // Sum of all personBreakdowns.totalAmount ≈ session.totalAmount (within ±$0.05)
+        let items = [
+            ReceiptItem(name: "Salad", quantity: 1, price: 12.00, assignedTo: ["Alice"]),
+            ReceiptItem(name: "Burger", quantity: 1, price: 15.00, assignedTo: ["Bob"]),
+            ReceiptItem(name: "Shared Pizza", quantity: 1, price: 21.00, assignedTo: ["Alice", "Bob", "Carol"]),
+            ReceiptItem(name: "Tax", quantity: 1, price: 4.80, assignedTo: ["All"])
+        ]
+        let session = ReceiptSession(
+            participants: ["Alice", "Bob", "Carol"],
+            totalAmount: 52.80,
+            paidBy: "Alice",
+            items: items
+        )
+        let result = try engine.computeSplits(session: session)
+        let sumTotal = result.personBreakdowns.reduce(0.0) { $0 + $1.totalAmount }
+        XCTAssertEqual(sumTotal, session.totalAmount, accuracy: 0.05)
+    }
+}
+
+// MARK: - PersonBreakdownCodableTests
+
+final class PersonBreakdownCodableTests: XCTestCase {
+
+    func testItemChargeCalculation() {
+        let charge = ItemCharge(itemName: "Pizza", itemFullPrice: 24.00, splitAmong: 3, amount: 8.00)
+        let expected = charge.itemFullPrice / Double(charge.splitAmong)
+        XCTAssertEqual(charge.amount, expected, accuracy: 0.001)
+    }
+
+    func testFeeChargeEqualStrategy() {
+        let feeAmount = 9.00
+        let participants = 3
+        let perPerson = feeAmount / Double(participants)
+        let charge = FeeCharge(feeName: "Tip", feeFullAmount: feeAmount, strategy: .equal, amount: perPerson)
+        XCTAssertEqual(charge.amount, 3.00, accuracy: 0.001)
+    }
+
+    func testFeeChargeProportionalSumsToFeeTotal() throws {
+        // Three people with spending ratio 1:2:3. Fee = $6.
+        // Expected: $1, $2, $3
+        let totalSpending = 60.0
+        let feeTotal = 6.0
+        let spendings: [Double] = [10.0, 20.0, 30.0]
+        var sum = 0.0
+        for spending in spendings {
+            let ratio = spending / totalSpending
+            let feeAmount = feeTotal * ratio
+            sum += feeAmount
+        }
+        XCTAssertEqual(sum, feeTotal, accuracy: 0.001)
+    }
+
+    func testTotalAmountComputed() {
+        let itemCharges = [
+            ItemCharge(itemName: "A", itemFullPrice: 10.00, splitAmong: 1, amount: 10.00),
+            ItemCharge(itemName: "B", itemFullPrice: 20.00, splitAmong: 2, amount: 10.00)
+        ]
+        let feeCharges = [
+            FeeCharge(feeName: "Tax", feeFullAmount: 2.00, strategy: .equal, amount: 1.00)
+        ]
+        let breakdown = PersonBreakdown(
+            person: "Alice",
+            itemCharges: itemCharges,
+            feeCharges: feeCharges,
+            settlementAmount: 0.0
+        )
+        XCTAssertEqual(breakdown.totalAmount, 21.00, accuracy: 0.001)
+    }
+
+    func testCodableRoundTrip() throws {
+        let original = PersonBreakdown(
+            person: "Bob",
+            itemCharges: [
+                ItemCharge(itemName: "Pizza", itemFullPrice: 24.00, splitAmong: 3, amount: 8.00)
+            ],
+            feeCharges: [
+                FeeCharge(feeName: "Tax", feeFullAmount: 3.00, strategy: .proportional, amount: 1.20)
+            ],
+            settlementAmount: 9.20
+        )
+
+        let encoder = JSONEncoder()
+        let decoder = JSONDecoder()
+        let data = try encoder.encode(original)
+        let decoded = try decoder.decode(PersonBreakdown.self, from: data)
+
+        XCTAssertEqual(decoded.person, original.person)
+        XCTAssertEqual(decoded.settlementAmount, original.settlementAmount, accuracy: 0.001)
+        XCTAssertEqual(decoded.itemCharges.count, original.itemCharges.count)
+        XCTAssertEqual(decoded.feeCharges.count, original.feeCharges.count)
+        XCTAssertEqual(decoded.itemCharges[0].itemName, original.itemCharges[0].itemName)
+        XCTAssertEqual(decoded.feeCharges[0].feeName, original.feeCharges[0].feeName)
+    }
+
+    func testBackwardCompatibilityV1Session() throws {
+        // A v1 JSON payload has no "person_breakdowns" key
+        let v1Json = """
+        {
+            "id": "550E8400-E29B-41D4-A716-446655440000",
+            "created_at": "2024-01-01T12:00:00Z",
+            "receipt_date": "2024-01-01T12:00:00Z",
+            "receipt_date_source": "scan_timestamp_fallback",
+            "receipt_date_has_time": true,
+            "receipt_image_paths": [],
+            "participants": ["Alice", "Bob"],
+            "total_amount": 20.0,
+            "paid_by": "Alice",
+            "items": [],
+            "computed_splits": [],
+            "fee_allocations": []
+        }
+        """
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let data = v1Json.data(using: .utf8)!
+        let session = try decoder.decode(ReceiptSession.self, from: data)
+        // Should decode cleanly with empty personBreakdowns
+        XCTAssertTrue(session.personBreakdowns.isEmpty, "v1 session should decode with empty personBreakdowns")
+        XCTAssertEqual(session.participants.count, 2)
     }
 }

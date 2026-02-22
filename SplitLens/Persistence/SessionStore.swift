@@ -39,7 +39,7 @@ private struct StoredSessionEnvelope: Codable {
 }
 
 final class SwiftDataSessionStore: SessionStoreProtocol {
-    private static let currentSchemaVersion = 1
+    private static let currentSchemaVersion = 2
 
     private let modelContainer: ModelContainer
     private let context: ModelContext

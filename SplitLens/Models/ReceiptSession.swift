@@ -53,9 +53,12 @@ struct ReceiptSession: Identifiable, Codable, Equatable {
     
     /// Extracted fees with their allocation strategies
     var feeAllocations: [FeeAllocation]
-    
+
+    /// Per-person itemised breakdowns for history display (v2+)
+    var personBreakdowns: [PersonBreakdown]
+
     // MARK: - Initialization
-    
+
     /// Creates a new receipt session
     init(
         id: UUID = UUID(),
@@ -69,7 +72,8 @@ struct ReceiptSession: Identifiable, Codable, Equatable {
         paidBy: String = "",
         items: [ReceiptItem] = [],
         computedSplits: [SplitLog] = [],
-        feeAllocations: [FeeAllocation] = []
+        feeAllocations: [FeeAllocation] = [],
+        personBreakdowns: [PersonBreakdown] = []
     ) {
         self.id = id
         self.createdAt = createdAt
@@ -83,6 +87,7 @@ struct ReceiptSession: Identifiable, Codable, Equatable {
         self.items = items
         self.computedSplits = computedSplits
         self.feeAllocations = feeAllocations
+        self.personBreakdowns = personBreakdowns
     }
     
     // MARK: - Computed Properties
@@ -253,6 +258,7 @@ extension ReceiptSession {
         case items
         case computedSplits = "computed_splits"
         case feeAllocations = "fee_allocations"
+        case personBreakdowns = "person_breakdowns"
     }
 
     init(from decoder: Decoder) throws {
@@ -270,6 +276,8 @@ extension ReceiptSession {
         items = try container.decodeIfPresent([ReceiptItem].self, forKey: .items) ?? []
         computedSplits = try container.decodeIfPresent([SplitLog].self, forKey: .computedSplits) ?? []
         feeAllocations = try container.decodeIfPresent([FeeAllocation].self, forKey: .feeAllocations) ?? []
+        // v2 field — gracefully defaults to [] for legacy (v1) sessions
+        personBreakdowns = try container.decodeIfPresent([PersonBreakdown].self, forKey: .personBreakdowns) ?? []
     }
 
     func encode(to encoder: Encoder) throws {
@@ -287,6 +295,7 @@ extension ReceiptSession {
         try container.encode(items, forKey: .items)
         try container.encode(computedSplits, forKey: .computedSplits)
         try container.encode(feeAllocations, forKey: .feeAllocations)
+        try container.encode(personBreakdowns, forKey: .personBreakdowns)
     }
 }
 

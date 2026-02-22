@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A1B2001100110000000001AA /* PersonBreakdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2001100110000000001BB /* PersonBreakdown.swift */; };
+		A1B2001100110000000002AA /* FullScreenImageViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2001100110000000002BB /* FullScreenImageViewer.swift */; };
 		45FB9DC296004693886AB2A2 /* SplitLens/Views/Components/PageFilterChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9B14A751CD84A3B9F9D2976 /* SplitLens/Views/Components/PageFilterChip.swift */; };
 		5232BD2FBD16474C9A053B0E /* SplitLens/Models/FeeAllocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 290F8B8FE6824DFFB48A09C7 /* SplitLens/Models/FeeAllocation.swift */; };
 		6DF75218BB2A427580052B0C /* SplitLens/Models/PageProcessingResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = D94C2D29159F40DC95826A68 /* SplitLens/Models/PageProcessingResult.swift */; };
@@ -96,6 +98,8 @@
 		BB0003 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		BB0004 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		BB0005 /* ReceiptItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptItem.swift; sourceTree = "<group>"; };
+		A1B2001100110000000001BB /* PersonBreakdown.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonBreakdown.swift; sourceTree = "<group>"; };
+		A1B2001100110000000002BB /* FullScreenImageViewer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FullScreenImageViewer.swift; sourceTree = "<group>"; };
 		BB0006 /* ReceiptSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptSession.swift; sourceTree = "<group>"; };
 		BB0007 /* SplitLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplitLog.swift; sourceTree = "<group>"; };
 		B1100001A1B2C3D4E5F60001 /* ScanMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanMetadata.swift; sourceTree = "<group>"; };
@@ -224,6 +228,7 @@
 		EE0004 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				A1B2001100110000000001BB /* PersonBreakdown.swift */,
 				F3D49E0D2F27BB3F0010FDAC /* FeeAllocation.swift */,
 				F348DE2D2EDAC0A5003D37D7 /* ReportData.swift */,
 				F37A12672EE354CB00077FE5 /* StructuredReceiptData.swift */,
@@ -352,6 +357,7 @@
 				F3D49E182F27BBDB0010FDAC /* ImageReorderSheet.swift */,
 				F3D49E192F27BBDB0010FDAC /* PageFilterChip.swift */,
 				F3D49E1A2F27BBDB0010FDAC /* TotalConfirmationSheet.swift */,
+				A1B2001100110000000002BB /* FullScreenImageViewer.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -451,6 +457,8 @@
 				AA0001 /* SplitLensApp.swift in Sources */,
 				AA0002 /* ContentView.swift in Sources */,
 				AA0005 /* ReceiptItem.swift in Sources */,
+				A1B2001100110000000001AA /* PersonBreakdown.swift in Sources */,
+				A1B2001100110000000002AA /* FullScreenImageViewer.swift in Sources */,
 				AA0006 /* ReceiptSession.swift in Sources */,
 				AA0007 /* SplitLog.swift in Sources */,
 				A1100001A1B2C3D4E5F60001 /* ScanMetadata.swift in Sources */,

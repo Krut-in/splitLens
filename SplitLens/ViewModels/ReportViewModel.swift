@@ -92,6 +92,7 @@ final class ReportViewModel: ObservableObject {
         do {
             let result = try billSplitEngine.computeSplits(session: session)
             session.computedSplits = result.splits
+            session.personBreakdowns = result.personBreakdowns
             warnings = result.warnings
             
             // Clear any previous errors

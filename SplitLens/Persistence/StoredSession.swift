@@ -36,5 +36,3 @@ final class StoredSession {
         self.payloadData = payloadData
     }
 }
-
-#Index<StoredSession>([\.receiptDate], [\.totalAmount], [\.paidBy])

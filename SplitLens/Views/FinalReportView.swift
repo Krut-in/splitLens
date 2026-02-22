@@ -194,19 +194,35 @@ struct FinalReportView: View {
             Text("Per-Person Breakdown")
                 .font(.system(size: 20, weight: .bold))
                 .foregroundStyle(.primary)
-            
-            VStack(spacing: 12) {
-                ForEach(viewModel.session.participants.sorted(), id: \.self) { person in
-                    personBreakdownRow(person)
+
+            if !viewModel.session.personBreakdowns.isEmpty {
+                VStack(spacing: 10) {
+                    ForEach(viewModel.session.personBreakdowns.sorted {
+                        if $0.person == viewModel.session.paidBy { return true }
+                        if $1.person == viewModel.session.paidBy { return false }
+                        return $0.person < $1.person
+                    }) { breakdown in
+                        ReportPersonBreakdownRow(
+                            breakdown: breakdown,
+                            paidBy: viewModel.session.paidBy
+                        )
+                    }
+                }
+            } else {
+                // Fallback: simple rows using totalOwed (legacy / no breakdown data yet)
+                VStack(spacing: 12) {
+                    ForEach(viewModel.session.participants.sorted(), id: \.self) { person in
+                        legacyPersonBreakdownRow(person)
+                    }
                 }
             }
         }
     }
-    
-    private func personBreakdownRow(_ person: String) -> some View {
+
+    private func legacyPersonBreakdownRow(_ person: String) -> some View {
         let total = viewModel.session.totalOwed(by: person)
         let balance = viewModel.getBalances()[person] ?? 0
-        
+
         return HStack(spacing: 12) {
             Circle()
                 .fill(balance >= 0 ? Color.green.opacity(0.2) : Color.red.opacity(0.2))
@@ -216,24 +232,24 @@ struct FinalReportView: View {
                         .font(.system(size: 18, weight: .bold))
                         .foregroundStyle(balance >= 0 ? .green : .red)
                 )
-            
+
             VStack(alignment: .leading, spacing: 4) {
                 Text(person)
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(.primary)
-                
+
                 Text(person == viewModel.session.paidBy ? "Paid the bill" : "Participant")
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
             }
-            
+
             Spacer()
-            
+
             VStack(alignment: .trailing, spacing: 2) {
                 Text(CurrencyFormatter.shared.format(total))
                     .font(.system(size: 17, weight: .bold, design: .rounded))
                     .foregroundStyle(.primary)
-                
+
                 if balance != 0 {
                     Text(balance > 0 ? "Owed \(CurrencyFormatter.shared.format(balance))" : "Owes \(CurrencyFormatter.shared.format(abs(balance)))")
                         .font(.system(size: 12))
@@ -242,10 +258,7 @@ struct FinalReportView: View {
             }
         }
         .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(.ultraThinMaterial)
-        )
+        .background(RoundedRectangle(cornerRadius: 14).fill(.ultraThinMaterial))
         .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
     }
     
@@ -387,6 +400,115 @@ struct FinalReportView: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - ReportPersonBreakdownRow
+
+/// Expandable per-person breakdown row used in FinalReportView.
+private struct ReportPersonBreakdownRow: View {
+    let breakdown: PersonBreakdown
+    let paidBy: String
+
+    @State private var isExpanded = false
+
+    private var isPayer: Bool { breakdown.person == paidBy }
+
+    private var avatarColor: Color {
+        let hash = abs(breakdown.person.unicodeScalars.reduce(0) { $0 &+ Int($1.value) })
+        let hue = Double(hash % 360) / 360.0
+        return Color(hue: hue, saturation: 0.65, brightness: 0.75)
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header
+            HStack(spacing: 12) {
+                Circle()
+                    .fill(avatarColor.opacity(0.2))
+                    .frame(width: 44, height: 44)
+                    .overlay(
+                        Text(breakdown.person.prefix(1).uppercased())
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundStyle(avatarColor)
+                    )
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(breakdown.person)
+                        .font(.system(size: 16, weight: .semibold))
+                    Text(isPayer ? "Paid the bill" : "Participant")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(isPayer ? .green : .secondary)
+                }
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(CurrencyFormatter.shared.format(breakdown.totalAmount))
+                        .font(.system(size: 17, weight: .bold, design: .rounded))
+
+                    if !breakdown.itemCharges.isEmpty || !breakdown.feeCharges.isEmpty {
+                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .padding(16)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                if !breakdown.itemCharges.isEmpty || !breakdown.feeCharges.isEmpty {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                        isExpanded.toggle()
+                    }
+                }
+            }
+
+            if isExpanded {
+                Divider().padding(.horizontal, 16)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(breakdown.itemCharges) { charge in
+                        HStack {
+                            Text(charge.itemName)
+                                .font(.system(size: 13))
+                                .lineLimit(1)
+                            Spacer()
+                            if charge.splitAmong > 1 {
+                                Text("÷\(charge.splitAmong)")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.secondary)
+                            }
+                            Text(CurrencyFormatter.shared.format(charge.amount))
+                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        }
+                        .padding(.horizontal, 16)
+                    }
+
+                    if !breakdown.feeCharges.isEmpty {
+                        Divider().padding(.horizontal, 16).padding(.vertical, 2)
+                        ForEach(breakdown.feeCharges) { charge in
+                            HStack {
+                                Text(charge.feeName)
+                                    .font(.system(size: 13))
+                                Text("(\(charge.strategy.displayName))")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                Text(CurrencyFormatter.shared.format(charge.amount))
+                                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                    .foregroundStyle(.purple)
+                            }
+                            .padding(.horizontal, 16)
+                        }
+                    }
+                }
+                .padding(.vertical, 10)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .background(RoundedRectangle(cornerRadius: 14).fill(.ultraThinMaterial))
+        .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
     }
 }
 
