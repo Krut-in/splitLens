@@ -57,6 +57,9 @@ struct ReceiptSession: Identifiable, Codable, Equatable {
     /// Per-person itemised breakdowns for history display (v2+)
     var personBreakdowns: [PersonBreakdown]
 
+    /// Store/vendor name extracted from the receipt by OCR (nil if not detected)
+    var storeName: String?
+
     // MARK: - Initialization
 
     /// Creates a new receipt session
@@ -73,7 +76,8 @@ struct ReceiptSession: Identifiable, Codable, Equatable {
         items: [ReceiptItem] = [],
         computedSplits: [SplitLog] = [],
         feeAllocations: [FeeAllocation] = [],
-        personBreakdowns: [PersonBreakdown] = []
+        personBreakdowns: [PersonBreakdown] = [],
+        storeName: String? = nil
     ) {
         self.id = id
         self.createdAt = createdAt
@@ -88,6 +92,7 @@ struct ReceiptSession: Identifiable, Codable, Equatable {
         self.computedSplits = computedSplits
         self.feeAllocations = feeAllocations
         self.personBreakdowns = personBreakdowns
+        self.storeName = storeName
     }
     
     // MARK: - Computed Properties
@@ -259,6 +264,7 @@ extension ReceiptSession {
         case computedSplits = "computed_splits"
         case feeAllocations = "fee_allocations"
         case personBreakdowns = "person_breakdowns"
+        case storeName = "store_name"
     }
 
     init(from decoder: Decoder) throws {
@@ -278,6 +284,7 @@ extension ReceiptSession {
         feeAllocations = try container.decodeIfPresent([FeeAllocation].self, forKey: .feeAllocations) ?? []
         // v2 field — gracefully defaults to [] for legacy (v1) sessions
         personBreakdowns = try container.decodeIfPresent([PersonBreakdown].self, forKey: .personBreakdowns) ?? []
+        storeName = try container.decodeIfPresent(String.self, forKey: .storeName)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -296,6 +303,7 @@ extension ReceiptSession {
         try container.encode(computedSplits, forKey: .computedSplits)
         try container.encode(feeAllocations, forKey: .feeAllocations)
         try container.encode(personBreakdowns, forKey: .personBreakdowns)
+        try container.encodeIfPresent(storeName, forKey: .storeName)
     }
 }
 

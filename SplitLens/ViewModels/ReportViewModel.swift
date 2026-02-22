@@ -53,6 +53,7 @@ final class ReportViewModel: ObservableObject {
     private let sessionStore: SessionStoreProtocol
     private let receiptImageStore: ReceiptImageStoreProtocol
     private let scanMetadata: ScanMetadata
+    private let patternLearningEngine: PatternLearningEngineProtocol?
     
     // MARK: - Computed Properties
     
@@ -72,7 +73,8 @@ final class ReportViewModel: ObservableObject {
         billSplitEngine: BillSplitEngineProtocol = DependencyContainer.shared.billSplitEngine,
         reportEngine: ReportGenerationEngineProtocol = DependencyContainer.shared.reportEngine,
         sessionStore: SessionStoreProtocol = DependencyContainer.shared.sessionStore,
-        receiptImageStore: ReceiptImageStoreProtocol = DependencyContainer.shared.receiptImageStore
+        receiptImageStore: ReceiptImageStoreProtocol = DependencyContainer.shared.receiptImageStore,
+        patternLearningEngine: PatternLearningEngineProtocol? = DependencyContainer.shared.patternLearningEngine
     ) {
         self.session = session
         self.scanMetadata = scanMetadata
@@ -80,7 +82,8 @@ final class ReportViewModel: ObservableObject {
         self.reportEngine = reportEngine
         self.sessionStore = sessionStore
         self.receiptImageStore = receiptImageStore
-        
+        self.patternLearningEngine = patternLearningEngine
+
         // Compute splits on initialization
         computeSplits()
     }
@@ -174,6 +177,16 @@ final class ReportViewModel: ObservableObject {
             session = updatedSession
             isSaved = true
             successMessage = "Session saved successfully!"
+
+            // Learn assignment patterns from this session (fire-and-forget)
+            if let engine = patternLearningEngine {
+                Task {
+                    try? await engine.learnPatterns(
+                        from: updatedSession,
+                        storeName: scanMetadata.storeName
+                    )
+                }
+            }
 
         } catch let error as ReceiptImageStoreError {
             ErrorHandler.shared.log(error, context: "ReportViewModel.saveSession.imageStore")

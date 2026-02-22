@@ -56,6 +56,9 @@ final class ImageUploadViewModel: ObservableObject {
     /// Whether OCR-provided receipt date included a time component
     @Published var detectedReceiptDateHasTime = false
 
+    /// Store/vendor name extracted from the receipt by OCR
+    @Published var detectedStoreName: String?
+
     /// Timestamp when this scan flow started (fallback receipt date source)
     @Published var scanCapturedAt: Date?
     
@@ -294,6 +297,7 @@ final class ImageUploadViewModel: ObservableObject {
         detectedFees = []
         detectedReceiptDate = nil
         detectedReceiptDateHasTime = false
+        detectedStoreName = nil
         scanCapturedAt = nil
         progressTracker.reset()
         userEnteredTotal = nil
@@ -339,7 +343,8 @@ final class ImageUploadViewModel: ObservableObject {
             scanCapturedAt: scanCapturedAt ?? Date(),
             ocrReceiptDate: detectedReceiptDate,
             ocrReceiptDateHasTime: detectedReceiptDateHasTime,
-            selectedImages: selectedImages
+            selectedImages: selectedImages,
+            storeName: detectedStoreName
         )
     }
 }

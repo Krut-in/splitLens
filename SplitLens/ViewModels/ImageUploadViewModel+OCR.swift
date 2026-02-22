@@ -260,6 +260,11 @@ extension ImageUploadViewModel {
         receiptDate: Date?,
         receiptDateHasTime: Bool
     ) {
+        // Extract first available store name from page results
+        if detectedStoreName == nil {
+            detectedStoreName = pageResults.first(where: { $0.storeName != nil })?.storeName
+        }
+
         // Convert to ReceiptItems
         extractedItems = items.map { $0.toReceiptItem() }
         

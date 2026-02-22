@@ -38,7 +38,8 @@ struct ItemAssignmentView: View {
         _viewModel = StateObject(wrappedValue: AssignmentViewModel(
             items: items,
             participants: participants,
-            paidBy: paidBy
+            paidBy: paidBy,
+            storeName: scanMetadata.storeName
         ))
         self.feeAllocations = feeAllocations
         self.scanMetadata = scanMetadata
@@ -51,12 +52,19 @@ struct ItemAssignmentView: View {
         ZStack {
             Color(.systemGroupedBackground)
                 .ignoresSafeArea()
-            
+
             VStack(spacing: 0) {
                 // Progress indicator
                 progressSection
                     .padding()
-                
+
+                // Smart suggestion banner (shown when suggestions are active)
+                if viewModel.hasSmartSuggestions {
+                    smartSuggestionBanner
+                        .padding(.horizontal)
+                        .padding(.bottom, 8)
+                }
+
                 // Items with assignment chips
                 ScrollView {
                     VStack(spacing: 16) {
@@ -64,6 +72,8 @@ struct ItemAssignmentView: View {
                             ItemAssignmentCard(
                                 item: $item,
                                 participants: viewModel.participants,
+                                isSmartAssigned: viewModel.isSmartAssigned(item.id),
+                                suggestion: viewModel.suggestion(for: item.id),
                                 onToggle: { participant in
                                     viewModel.toggleAssignment(itemId: item.id, participant: participant)
                                 }
@@ -72,7 +82,7 @@ struct ItemAssignmentView: View {
                     }
                     .padding()
                 }
-                
+
                 // Bottom bar with totals and calculate button
                 bottomBar
             }
@@ -85,20 +95,70 @@ struct ItemAssignmentView: View {
                     Button("Assign All to Everyone", action: {
                         viewModel.splitEquallyAllItems()
                     })
-                    
+
                     Button("Clear All Assignments", action: {
                         viewModel.clearAllAssignments()
                     })
+
+                    if viewModel.hasSmartSuggestions {
+                        Button("Clear Smart Suggestions", role: .destructive, action: {
+                            viewModel.clearSmartSuggestions()
+                        })
+                    }
+
+                    if !viewModel.suggestionsLoaded {
+                        Toggle(
+                            "Smart Suggestions",
+                            isOn: $viewModel.smartSuggestionsEnabled
+                        )
+                    }
                 } label: {
                     Image(systemName: "ellipsis.circle")
                         .font(.system(size: 18))
                 }
             }
         }
+        .task {
+            await viewModel.loadSmartSuggestions()
+        }
     }
     
     // MARK: - Sections
-    
+
+    private var smartSuggestionBanner: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "brain.head.profile.fill")
+                .foregroundStyle(.purple)
+                .font(.system(size: 16))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Smart Suggestions Applied")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.primary)
+                Text("\(viewModel.smartSuggestedCount) item(s) auto-assigned based on past sessions")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Button {
+                viewModel.clearSmartSuggestions()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundStyle(.secondary)
+                    .font(.system(size: 18))
+            }
+        }
+        .padding(12)
+        .background(Color.purple.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.purple.opacity(0.2), lineWidth: 1)
+        )
+    }
+
     private var progressSection: some View {
         VStack(spacing: 8) {
             HStack {
@@ -208,16 +268,17 @@ struct ItemAssignmentView: View {
         // Create session with fee allocations
         let totalWithFees = viewModel.items.reduce(0.0) { $0 + $1.totalPrice } +
                             feeAllocations.reduce(0.0) { $0 + $1.fee.amount }
-        
+
         let session = ReceiptSession(
             participants: viewModel.participants,
             totalAmount: totalWithFees,
             paidBy: viewModel.paidBy,
             items: viewModel.items,
             computedSplits: [],
-            feeAllocations: feeAllocations
+            feeAllocations: feeAllocations,
+            storeName: scanMetadata.storeName
         )
-        
+
         navigationPath.append(Route.finalReport(session, scanMetadata))
     }
 }
@@ -227,17 +288,43 @@ struct ItemAssignmentView: View {
 struct ItemAssignmentCard: View {
     @Binding var item: ReceiptItem
     let participants: [String]
+    var isSmartAssigned: Bool = false
+    var suggestion: SuggestedAssignment? = nil
     let onToggle: (String) -> Void
-    
+
+    private var borderColor: Color {
+        if isSmartAssigned {
+            return Color.purple.opacity(0.4)
+        }
+        return item.isAssigned ? Color.blue.opacity(0.3) : Color.clear
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             // Item info
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(item.name)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(.primary)
-                    
+                    HStack(spacing: 6) {
+                        Text(item.name)
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(.primary)
+
+                        // Smart assignment confidence badge
+                        if isSmartAssigned, let suggestion = suggestion, suggestion.confidence != .none {
+                            HStack(spacing: 3) {
+                                Image(systemName: suggestion.confidence.iconName)
+                                    .font(.system(size: 9))
+                                Text(suggestion.confidence.displayLabel)
+                                    .font(.system(size: 10, weight: .semibold))
+                            }
+                            .foregroundStyle(badgeTextColor(suggestion.confidence))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(badgeBackgroundColor(suggestion.confidence))
+                            .clipShape(Capsule())
+                        }
+                    }
+
                     if item.quantity > 1 {
                         HStack(spacing: 4) {
                             Text("Qty:")
@@ -255,22 +342,22 @@ struct ItemAssignmentCard: View {
                         )
                     }
                 }
-                
+
                 Spacer()
-                
+
                 Text(CurrencyFormatter.shared.format(item.totalPrice))
                     .font(.system(size: 18, weight: .bold, design: .rounded))
                     .foregroundStyle(.green)
             }
-            
+
             Divider()
-            
+
             // Assignment chips
             VStack(alignment: .leading, spacing: 8) {
                 Text("Assign to")
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(.secondary)
-                
+
                 FlowLayout(spacing: 8) {
                     ForEach(participants, id: \.self) { participant in
                         ParticipantChip(
@@ -283,16 +370,16 @@ struct ItemAssignmentCard: View {
                     }
                 }
             }
-            
+
             // Per-person cost
             if item.isAssigned {
                 HStack {
                     Text("Per person:")
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
-                    
+
                     Spacer()
-                    
+
                     Text(CurrencyFormatter.shared.format(item.pricePerPerson))
                         .font(.system(size: 14, weight: .semibold, design: .rounded))
                         .foregroundStyle(.blue)
@@ -305,11 +392,26 @@ struct ItemAssignmentCard: View {
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .overlay(
             RoundedRectangle(cornerRadius: 14)
-                .stroke(
-                    item.isAssigned ? Color.blue.opacity(0.3) : Color.clear,
-                    lineWidth: 2
-                )
+                .stroke(borderColor, lineWidth: 2)
         )
+    }
+
+    private func badgeTextColor(_ confidence: PatternConfidence) -> Color {
+        switch confidence {
+        case .none: return .clear
+        case .likely: return .orange
+        case .strong: return .blue
+        case .veryStrong: return .green
+        }
+    }
+
+    private func badgeBackgroundColor(_ confidence: PatternConfidence) -> Color {
+        switch confidence {
+        case .none: return .clear
+        case .likely: return Color.orange.opacity(0.12)
+        case .strong: return Color.blue.opacity(0.12)
+        case .veryStrong: return Color.green.opacity(0.12)
+        }
     }
 }
 

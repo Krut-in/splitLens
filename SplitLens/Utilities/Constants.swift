@@ -155,6 +155,29 @@ enum AppConstants {
         ]
     }
 
+    // MARK: - Smart Assignment Configuration
+
+    /// Constants for the Smart Assignments (pattern learning) feature
+    enum SmartAssignment {
+        /// Minimum consecutive times an item must be assigned the same way before suggestions appear
+        static let minimumConsecutiveHits: Int = 2
+
+        /// Number of days after which a pattern is considered stale (not shown in suggestions)
+        static let stalenessDays: Int = 90
+
+        /// Number of days after which a pattern is eligible for cleanup/deletion
+        static let cleanupDays: Int = 180
+
+        /// Maximum number of patterns to store on-device
+        static let maxPatterns: Int = 500
+
+        /// Minimum Levenshtein similarity (0.0-1.0) to consider two item names a match
+        static let nameSimilarityThreshold: Double = 0.80
+
+        /// Maximum item name character length to learn (skip unusually long names)
+        static let maxItemNameLength: Int = 80
+    }
+
     // MARK: - Formatters
 
     /// Cached formatters to improve performance by avoiding repeated instantiation

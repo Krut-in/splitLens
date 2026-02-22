@@ -96,6 +96,10 @@
 		SL_BF_006 /* GroupManagementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SL_FR_006 /* GroupManagementView.swift */; };
 		SL_BF_007 /* GroupEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = SL_FR_007 /* GroupEditorSheet.swift */; };
 		SL_BF_008 /* GroupChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = SL_FR_008 /* GroupChip.swift */; };
+		SL_BF_009 /* AssignmentPattern.swift in Sources */ = {isa = PBXBuildFile; fileRef = SL_FR_009 /* AssignmentPattern.swift */; };
+		SL_BF_010 /* StoredPattern.swift in Sources */ = {isa = PBXBuildFile; fileRef = SL_FR_010 /* StoredPattern.swift */; };
+		SL_BF_011 /* PatternStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = SL_FR_011 /* PatternStore.swift */; };
+		SL_BF_012 /* PatternLearningEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = SL_FR_012 /* PatternLearningEngine.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -191,6 +195,10 @@
 		SL_FR_006 /* GroupManagementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupManagementView.swift; sourceTree = "<group>"; };
 		SL_FR_007 /* GroupEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupEditorSheet.swift; sourceTree = "<group>"; };
 		SL_FR_008 /* GroupChip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupChip.swift; sourceTree = "<group>"; };
+		SL_FR_009 /* AssignmentPattern.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssignmentPattern.swift; sourceTree = "<group>"; };
+		SL_FR_010 /* StoredPattern.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoredPattern.swift; sourceTree = "<group>"; };
+		SL_FR_011 /* PatternStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PatternStore.swift; sourceTree = "<group>"; };
+		SL_FR_012 /* PatternLearningEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PatternLearningEngine.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -254,6 +262,7 @@
 				BB0007 /* SplitLog.swift */,
 				F3D49E0F2F27BB780010FDAC /* PageProcessingResult.swift */,
 				SL_FR_001 /* ParticipantGroup.swift */,
+				SL_FR_009 /* AssignmentPattern.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -268,6 +277,7 @@
 				BB0010 /* BillSplitEngine.swift */,
 				BB0011 /* ReportGenerationEngine.swift */,
 				BB0012 /* DependencyContainer.swift */,
+				SL_FR_012 /* PatternLearningEngine.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -348,6 +358,8 @@
 				B1100004A1B2C3D4E5F60001 /* ReceiptImageStore.swift */,
 				SL_FR_002 /* StoredGroup.swift */,
 				SL_FR_003 /* GroupStore.swift */,
+				SL_FR_010 /* StoredPattern.swift */,
+				SL_FR_011 /* PatternStore.swift */,
 			);
 			path = Persistence;
 			sourceTree = "<group>";
@@ -544,6 +556,10 @@
 				SL_BF_006 /* GroupManagementView.swift in Sources */,
 				SL_BF_007 /* GroupEditorSheet.swift in Sources */,
 				SL_BF_008 /* GroupChip.swift in Sources */,
+				SL_BF_009 /* AssignmentPattern.swift in Sources */,
+				SL_BF_010 /* StoredPattern.swift in Sources */,
+				SL_BF_011 /* PatternStore.swift in Sources */,
+				SL_BF_012 /* PatternLearningEngine.swift in Sources */,
 
 			);
 			runOnlyForDeploymentPostprocessing = 0;

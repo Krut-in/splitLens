@@ -14,19 +14,23 @@ struct ScanMetadata: Hashable {
     let ocrReceiptDate: Date?
     let ocrReceiptDateHasTime: Bool
     let selectedImages: [UIImage]
+    /// Store/vendor name extracted from the receipt by OCR (nil if not detected)
+    let storeName: String?
 
     init(
         id: UUID = UUID(),
         scanCapturedAt: Date,
         ocrReceiptDate: Date?,
         ocrReceiptDateHasTime: Bool,
-        selectedImages: [UIImage]
+        selectedImages: [UIImage],
+        storeName: String? = nil
     ) {
         self.id = id
         self.scanCapturedAt = scanCapturedAt
         self.ocrReceiptDate = ocrReceiptDate
         self.ocrReceiptDateHasTime = ocrReceiptDateHasTime
         self.selectedImages = selectedImages
+        self.storeName = storeName
     }
 
     static var empty: ScanMetadata {
@@ -34,7 +38,8 @@ struct ScanMetadata: Hashable {
             scanCapturedAt: Date(),
             ocrReceiptDate: nil,
             ocrReceiptDateHasTime: true,
-            selectedImages: []
+            selectedImages: [],
+            storeName: nil
         )
     }
 

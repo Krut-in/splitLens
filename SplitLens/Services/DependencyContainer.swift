@@ -30,10 +30,16 @@ final class DependencyContainer {
 
     /// Local receipt image store.
     let receiptImageStore: ReceiptImageStoreProtocol
-    
+
+    /// Assignment pattern store for Smart Assignments.
+    let patternStore: PatternStoreProtocol
+
+    /// Pattern learning engine for Smart Assignments.
+    let patternLearningEngine: PatternLearningEngineProtocol?
+
     /// Bill splitting calculation service
     let billSplitEngine: BillSplitEngineProtocol
-    
+
     /// Report generation service
     let reportEngine: ReportGenerationEngineProtocol
     
@@ -70,19 +76,25 @@ final class DependencyContainer {
             }
         }
 
-        // Both stores share a single ModelContainer to avoid SwiftData conflicts.
+        // All stores share a single ModelContainer to avoid SwiftData conflicts.
         do {
-            let container = try ModelContainer(for: StoredSession.self, StoredGroup.self)
+            let container = try ModelContainer(for: StoredSession.self, StoredGroup.self, StoredPattern.self)
             self.sessionStore = try SwiftDataSessionStore(modelContainer: container)
             self.groupStore = try SwiftDataGroupStore(modelContainer: container)
+            let swiftDataPatternStore = try SwiftDataPatternStore(modelContainer: container)
+            self.patternStore = swiftDataPatternStore
+            self.patternLearningEngine = PatternLearningEngine(patternStore: swiftDataPatternStore)
         } catch {
             ErrorHandler.shared.log(error, context: "DependencyContainer.SwiftData")
             self.sessionStore = InMemorySessionStore()
             self.groupStore = InMemoryGroupStore()
+            let inMemoryPatternStore = InMemoryPatternStore()
+            self.patternStore = inMemoryPatternStore
+            self.patternLearningEngine = PatternLearningEngine(patternStore: inMemoryPatternStore)
         }
 
         self.receiptImageStore = LocalReceiptImageStore()
-        
+
         // These services are the same regardless of config
         self.billSplitEngine = AdvancedBillSplitEngine()
         self.reportEngine = ReportGenerationEngine()
