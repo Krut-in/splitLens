@@ -17,6 +17,7 @@ enum Route: Hashable {
     case finalReport(ReceiptSession, ScanMetadata)
     case history
     case sessionDetail(ReceiptSession)
+    case groupManagement
     
     // MARK: - Hashable Conformance
     
@@ -59,6 +60,8 @@ enum Route: Hashable {
         case .sessionDetail(let session):
             hasher.combine("sessionDetail")
             hasher.combine(session.id)
+        case .groupManagement:
+            hasher.combine("groupManagement")
         }
     }
     
@@ -96,6 +99,8 @@ enum Route: Hashable {
             return true
         case (.sessionDetail(let lSession), .sessionDetail(let rSession)):
             return lSession.id == rSession.id
+        case (.groupManagement, .groupManagement):
+            return true
         default:
             return false
         }

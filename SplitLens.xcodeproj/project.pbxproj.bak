@@ -88,14 +88,6 @@
 		1E961EF100DE49788AA263F6 /* TotalConfirmationSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C0103FFDAFB4011849D2989 /* TotalConfirmationSheet.swift */; };
 		A3D834CE210D4574BFB0167B /* FailedPagesRetryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 061AC649759D49FDB9CC2370 /* FailedPagesRetryView.swift */; };
 		7D71930EE7AD472485D410E4 /* TaxTipAllocationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BF5F2B19E43441EB44C18BA /* TaxTipAllocationView.swift */; };
-		SL_BF_001 /* ParticipantGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = SL_FR_001 /* ParticipantGroup.swift */; };
-		SL_BF_002 /* StoredGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = SL_FR_002 /* StoredGroup.swift */; };
-		SL_BF_003 /* GroupStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = SL_FR_003 /* GroupStore.swift */; };
-		SL_BF_004 /* GroupManagementViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = SL_FR_004 /* GroupManagementViewModel.swift */; };
-		SL_BF_005 /* GroupEditorViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = SL_FR_005 /* GroupEditorViewModel.swift */; };
-		SL_BF_006 /* GroupManagementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SL_FR_006 /* GroupManagementView.swift */; };
-		SL_BF_007 /* GroupEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = SL_FR_007 /* GroupEditorSheet.swift */; };
-		SL_BF_008 /* GroupChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = SL_FR_008 /* GroupChip.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -183,14 +175,6 @@
 		9C0103FFDAFB4011849D2989 /* TotalConfirmationSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SplitLens/Views/Components/TotalConfirmationSheet.swift"; sourceTree = SOURCE_ROOT; };
 		061AC649759D49FDB9CC2370 /* FailedPagesRetryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SplitLens/Views/Components/FailedPagesRetryView.swift"; sourceTree = SOURCE_ROOT; };
 		3BF5F2B19E43441EB44C18BA /* TaxTipAllocationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SplitLens/Views/TaxTipAllocationView.swift"; sourceTree = SOURCE_ROOT; };
-		SL_FR_001 /* ParticipantGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParticipantGroup.swift; sourceTree = "<group>"; };
-		SL_FR_002 /* StoredGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoredGroup.swift; sourceTree = "<group>"; };
-		SL_FR_003 /* GroupStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupStore.swift; sourceTree = "<group>"; };
-		SL_FR_004 /* GroupManagementViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupManagementViewModel.swift; sourceTree = "<group>"; };
-		SL_FR_005 /* GroupEditorViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupEditorViewModel.swift; sourceTree = "<group>"; };
-		SL_FR_006 /* GroupManagementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupManagementView.swift; sourceTree = "<group>"; };
-		SL_FR_007 /* GroupEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupEditorSheet.swift; sourceTree = "<group>"; };
-		SL_FR_008 /* GroupChip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupChip.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -253,7 +237,6 @@
 				B1100001A1B2C3D4E5F60001 /* ScanMetadata.swift */,
 				BB0007 /* SplitLog.swift */,
 				F3D49E0F2F27BB780010FDAC /* PageProcessingResult.swift */,
-				SL_FR_001 /* ParticipantGroup.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -281,8 +264,6 @@
 				BB0016 /* AssignmentViewModel.swift */,
 				BB0017 /* ReportViewModel.swift */,
 				BB0018 /* HistoryViewModel.swift */,
-				SL_FR_004 /* GroupManagementViewModel.swift */,
-				SL_FR_005 /* GroupEditorViewModel.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -301,8 +282,6 @@
 				F374ADA02EDAB88F00DF0376 /* Components */,
 				BB0002 /* ContentView.swift */,
 				F3D49E152F27BBB80010FDAC /* TaxTipAllocationView.swift */,
-				SL_FR_006 /* GroupManagementView.swift */,
-				SL_FR_007 /* GroupEditorSheet.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -346,8 +325,6 @@
 				B1100002A1B2C3D4E5F60001 /* StoredSession.swift */,
 				B1100003A1B2C3D4E5F60001 /* SessionStore.swift */,
 				B1100004A1B2C3D4E5F60001 /* ReceiptImageStore.swift */,
-				SL_FR_002 /* StoredGroup.swift */,
-				SL_FR_003 /* GroupStore.swift */,
 			);
 			path = Persistence;
 			sourceTree = "<group>";
@@ -381,7 +358,6 @@
 				F3D49E192F27BBDB0010FDAC /* PageFilterChip.swift */,
 				F3D49E1A2F27BBDB0010FDAC /* TotalConfirmationSheet.swift */,
 				A1B2001100110000000002BB /* FullScreenImageViewer.swift */,
-				SL_FR_008 /* GroupChip.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -536,15 +512,6 @@
 				F374ADA82EDAB8A800DF0376 /* FinalReportView.swift in Sources */,
 				F374ADA62EDAB89000DF0376 /* EmptyStateView.swift in Sources */,
 				AA0020 /* SupabaseConfig.swift in Sources */,
-				SL_BF_001 /* ParticipantGroup.swift in Sources */,
-				SL_BF_002 /* StoredGroup.swift in Sources */,
-				SL_BF_003 /* GroupStore.swift in Sources */,
-				SL_BF_004 /* GroupManagementViewModel.swift in Sources */,
-				SL_BF_005 /* GroupEditorViewModel.swift in Sources */,
-				SL_BF_006 /* GroupManagementView.swift in Sources */,
-				SL_BF_007 /* GroupEditorSheet.swift in Sources */,
-				SL_BF_008 /* GroupChip.swift in Sources */,
-
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

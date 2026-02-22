@@ -169,17 +169,48 @@ final class ParticipantsViewModel: ObservableObject {
     }
     
     // MARK: - Quick Actions
-    
+
     /// Adds multiple participants at once (useful for testing or presets)
     func addMultipleParticipants(_ names: [String]) {
         for name in names {
             addParticipant(name)
         }
     }
-    
+
     /// Suggests common names for quick adding
     static var suggestedNames: [String] {
         ["Me", "Friend", "Roommate", "Colleague"]
+    }
+
+    // MARK: - Group Support
+
+    /// ID of the currently selected group (for visual highlighting only)
+    @Published var selectedGroupId: UUID?
+
+    /// Merges a saved group's members into the current participant list.
+    /// Members already present (case-insensitive) are skipped to avoid duplicates.
+    func loadGroup(_ group: ParticipantGroup) {
+        selectedGroupId = group.id
+
+        for member in group.members {
+            let trimmed = member.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !participants.contains(where: {
+                $0.lowercased() == trimmed.lowercased()
+            }) else { continue }
+            participants.append(trimmed)
+        }
+
+        // Auto-select first participant as payer if none yet set
+        if paidBy.isEmpty, let first = participants.first {
+            paidBy = first
+        }
+
+        errorMessage = nil
+    }
+
+    /// Returns whether the given group is currently visually selected.
+    func isGroupSelected(_ group: ParticipantGroup) -> Bool {
+        selectedGroupId == group.id
     }
 }
 

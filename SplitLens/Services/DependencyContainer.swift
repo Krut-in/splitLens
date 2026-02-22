@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import SwiftData
 
 /// Centralized dependency management for the app
 final class DependencyContainer {
@@ -23,6 +24,9 @@ final class DependencyContainer {
 
     /// Local store for durable session history.
     let sessionStore: SessionStoreProtocol
+
+    /// Saved participant groups store.
+    let groupStore: GroupStoreProtocol
 
     /// Local receipt image store.
     let receiptImageStore: ReceiptImageStoreProtocol
@@ -66,11 +70,15 @@ final class DependencyContainer {
             }
         }
 
+        // Both stores share a single ModelContainer to avoid SwiftData conflicts.
         do {
-            self.sessionStore = try SwiftDataSessionStore()
+            let container = try ModelContainer(for: StoredSession.self, StoredGroup.self)
+            self.sessionStore = try SwiftDataSessionStore(modelContainer: container)
+            self.groupStore = try SwiftDataGroupStore(modelContainer: container)
         } catch {
-            ErrorHandler.shared.log(error, context: "DependencyContainer.SwiftDataSessionStore")
+            ErrorHandler.shared.log(error, context: "DependencyContainer.SwiftData")
             self.sessionStore = InMemorySessionStore()
+            self.groupStore = InMemoryGroupStore()
         }
 
         self.receiptImageStore = LocalReceiptImageStore()

@@ -126,8 +126,37 @@ enum AppConstants {
         static let supportedFeeTypes = ["tax", "tip", "delivery", "service"]
     }
     
+    // MARK: - Groups Configuration
+
+    /// Constants related to saved participant groups
+    enum Groups {
+        /// Maximum number of saved groups allowed
+        static let maxGroups: Int = 20
+
+        /// Maximum members per group
+        static let maxMembersPerGroup: Int = 20
+
+        /// Minimum members to form a group
+        static let minMembersPerGroup: Int = 2
+
+        /// Maximum characters for a group name
+        static let maxGroupNameLength: Int = 30
+
+        /// Available SF Symbol icon choices for group customisation
+        static let availableIcons: [String] = [
+            "person.3.fill",
+            "house.fill",
+            "briefcase.fill",
+            "fork.knife",
+            "airplane",
+            "heart.fill",
+            "star.fill",
+            "flag.fill"
+        ]
+    }
+
     // MARK: - Formatters
-    
+
     /// Cached formatters to improve performance by avoiding repeated instantiation
     enum Formatters {
         /// Date and time formatter (e.g., "Nov 28, 2024 at 3:45 PM")

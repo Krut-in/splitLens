@@ -10,24 +10,28 @@ import SwiftUI
 /// Screen for managing participants and selecting payer
 struct ParticipantsEntryView: View {
     // MARK: - Navigation
-    
+
     @Binding var navigationPath: NavigationPath
     @Environment(\.dismiss) private var dismiss
-    
+    @Environment(\.dependencies) private var dependencies
+
     // MARK: - ViewModels
-    
+
     @StateObject private var viewModel = ParticipantsViewModel()
     @StateObject private var itemsViewModel: ItemsEditorViewModel
-    
+
     // MARK: - Properties
-    
+
     /// Extracted fees from the receipt
     private let extractedFees: [Fee]
     private let scanMetadata: ScanMetadata
-    
+
     // MARK: - State
-    
+
     @FocusState private var isNameFieldFocused: Bool
+    @State private var savedGroups: [ParticipantGroup] = []
+    @State private var showGroupEditor = false
+    @AppStorage("hasShownGroupsTip") private var hasShownGroupsTip = false
     
     // MARK: - Initialization
     
@@ -60,7 +64,19 @@ struct ParticipantsEntryView: View {
                         color: .green
                     )
                     .padding(.horizontal)
-                    
+
+                    // Saved groups section (only when groups exist)
+                    if !savedGroups.isEmpty {
+                        savedGroupsSection
+                            .padding(.horizontal)
+                    }
+
+                    // First-time tip (shown once when no groups exist)
+                    if savedGroups.isEmpty && !hasShownGroupsTip {
+                        groupsTipBanner
+                            .padding(.horizontal)
+                    }
+
                     // Add participant section
                     addParticipantSection
                         .padding(.horizontal)
@@ -111,6 +127,24 @@ struct ParticipantsEntryView: View {
                 }
             }
         }
+        .task {
+            do {
+                savedGroups = try await dependencies.groupStore.fetchAllGroups()
+            } catch {
+                // Groups are a convenience — silently fail, section stays hidden
+            }
+        }
+        .sheet(isPresented: $showGroupEditor) {
+            GroupEditorSheet(
+                mode: .create,
+                existingGroupNames: savedGroups.map { $0.name },
+                groupStore: dependencies.groupStore
+            ) {
+                Task {
+                    savedGroups = (try? await dependencies.groupStore.fetchAllGroups()) ?? savedGroups
+                }
+            }
+        }
     }
     
     // MARK: - Navigation
@@ -147,7 +181,102 @@ struct ParticipantsEntryView: View {
     }
     
     // MARK: - Sections
-    
+
+    private var savedGroupsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Saved Groups")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(.primary)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    // Show up to 6 chips; overflow handled by "See all" chip
+                    let visibleGroups = Array(savedGroups.prefix(6))
+                    let hasMore = savedGroups.count > 6
+
+                    ForEach(visibleGroups) { group in
+                        GroupChip(
+                            group: group,
+                            isSelected: viewModel.isGroupSelected(group)
+                        ) {
+                            HapticFeedback.shared.lightImpact()
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                                viewModel.loadGroup(group)
+                            }
+                            Task {
+                                try? await dependencies.groupStore.recordGroupUsage(id: group.id)
+                            }
+                        }
+                    }
+
+                    // "See all" chip if more than 6 groups
+                    if hasMore {
+                        Button(action: {
+                            // Navigate to group management (no navigation needed here, just informational)
+                        }) {
+                            VStack(spacing: 4) {
+                                Image(systemName: "ellipsis")
+                                    .font(.system(size: 14, weight: .semibold))
+                                Text("See all (\(savedGroups.count))")
+                                    .font(.system(size: 11))
+                            }
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 10)
+                            .background(Color(.secondarySystemBackground))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.secondary)
+                    }
+
+                    // "+ New Group" chip at the end
+                    Button(action: { showGroupEditor = true }) {
+                        VStack(spacing: 4) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 16, weight: .semibold))
+                            Text("New")
+                                .font(.system(size: 12))
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(Color(.secondarySystemBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [5]))
+                                .foregroundStyle(.secondary)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private var groupsTipBanner: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "lightbulb.fill")
+                .foregroundStyle(.yellow)
+                .font(.system(size: 14))
+            Text("Tip: Create a group from the home screen to quickly add regulars")
+                .font(.system(size: 13))
+                .foregroundStyle(.secondary)
+            Spacer()
+            Button(action: { hasShownGroupsTip = true }) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Color(.secondarySystemBackground))
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+
     private var addParticipantSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Add Participants")

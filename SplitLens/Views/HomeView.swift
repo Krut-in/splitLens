@@ -98,6 +98,16 @@ struct HomeView: View {
                             ) {
                                 navigationPath.append(Route.history)
                             }
+
+                            // Groups button
+                            HomeActionButton(
+                                icon: "person.3.fill",
+                                title: "Groups",
+                                subtitle: "Manage saved groups",
+                                gradient: [Color.teal, Color.teal.opacity(0.8)]
+                            ) {
+                                navigationPath.append(Route.groupManagement)
+                            }
                         }
                         .padding(.horizontal, 24)
                         
@@ -162,6 +172,8 @@ struct HomeView: View {
             HistoryView(navigationPath: $navigationPath)
         case .sessionDetail(let session):
             SessionDetailView(session: session)
+        case .groupManagement:
+            GroupManagementView(navigationPath: $navigationPath)
         }
     }
 }
