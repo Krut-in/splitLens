@@ -22,6 +22,10 @@ struct TaxTipAllocationView: View {
     
     @State private var expandedAllocationId: UUID?
     @State private var showingPreview = false
+
+    // MARK: - Properties
+
+    private let scanMetadata: ScanMetadata
     
     // MARK: - Initialization
     
@@ -31,6 +35,7 @@ struct TaxTipAllocationView: View {
         participants: [String],
         paidBy: String,
         totalAmount: Double,
+        scanMetadata: ScanMetadata,
         navigationPath: Binding<NavigationPath>
     ) {
         _viewModel = StateObject(wrappedValue: TaxTipAllocationViewModel(
@@ -40,6 +45,7 @@ struct TaxTipAllocationView: View {
             paidBy: paidBy,
             totalAmount: totalAmount
         ))
+        self.scanMetadata = scanMetadata
         _navigationPath = navigationPath
     }
     
@@ -270,7 +276,8 @@ struct TaxTipAllocationView: View {
                 viewModel.participants,
                 viewModel.paidBy,
                 viewModel.totalAmount,
-                viewModel.feeAllocations
+                viewModel.feeAllocations,
+                scanMetadata
             )
         )
     }
@@ -558,6 +565,7 @@ struct PreviewRow: View {
             participants: ["Alice", "Bob"],
             paidBy: "Alice",
             totalAmount: 41.49,
+            scanMetadata: .empty,
             navigationPath: .constant(NavigationPath())
         )
     }

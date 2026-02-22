@@ -123,7 +123,13 @@ struct ImageUploadView: View {
                         if viewModel.detectedTotal != nil {
                             viewModel.requestTotalConfirmation()
                         } else {
-                            navigationPath.append(Route.itemsEditor(viewModel.extractedItems, viewModel.detectedFees))
+                            navigationPath.append(
+                                Route.itemsEditor(
+                                    viewModel.extractedItems,
+                                    viewModel.detectedFees,
+                                    viewModel.buildScanMetadata()
+                                )
+                            )
                         }
                     }
                     .font(.system(size: 17, weight: .semibold))
@@ -143,10 +149,22 @@ struct ImageUploadView: View {
                 detectedTotal: viewModel.detectedTotal,
                 calculatedItemsTotal: viewModel.calculatedItemsTotal,
                 onConfirm: {
-                    navigationPath.append(Route.itemsEditor(viewModel.extractedItems, viewModel.detectedFees))
+                    navigationPath.append(
+                        Route.itemsEditor(
+                            viewModel.extractedItems,
+                            viewModel.detectedFees,
+                            viewModel.buildScanMetadata()
+                        )
+                    )
                 },
                 onManualFix: {
-                    navigationPath.append(Route.itemsEditor(viewModel.extractedItems, viewModel.detectedFees))
+                    navigationPath.append(
+                        Route.itemsEditor(
+                            viewModel.extractedItems,
+                            viewModel.detectedFees,
+                            viewModel.buildScanMetadata()
+                        )
+                    )
                 }
             )
         }

@@ -50,7 +50,9 @@ final class ReportViewModel: ObservableObject {
     
     private let billSplitEngine: BillSplitEngineProtocol
     private let reportEngine: ReportGenerationEngineProtocol
-    private let supabaseService: SupabaseServiceProtocol
+    private let sessionStore: SessionStoreProtocol
+    private let receiptImageStore: ReceiptImageStoreProtocol
+    private let scanMetadata: ScanMetadata
     
     // MARK: - Computed Properties
     
@@ -60,20 +62,24 @@ final class ReportViewModel: ObservableObject {
     }
     
     /// Whether the session has been saved
-    var isSaved = false
+    @Published var isSaved = false
     
     // MARK: - Initialization
     
     init(
         session: ReceiptSession,
+        scanMetadata: ScanMetadata,
         billSplitEngine: BillSplitEngineProtocol = DependencyContainer.shared.billSplitEngine,
         reportEngine: ReportGenerationEngineProtocol = DependencyContainer.shared.reportEngine,
-        supabaseService: SupabaseServiceProtocol = DependencyContainer.shared.supabaseService
+        sessionStore: SessionStoreProtocol = DependencyContainer.shared.sessionStore,
+        receiptImageStore: ReceiptImageStoreProtocol = DependencyContainer.shared.receiptImageStore
     ) {
         self.session = session
+        self.scanMetadata = scanMetadata
         self.billSplitEngine = billSplitEngine
         self.reportEngine = reportEngine
-        self.supabaseService = supabaseService
+        self.sessionStore = sessionStore
+        self.receiptImageStore = receiptImageStore
         
         // Compute splits on initialization
         computeSplits()
@@ -139,17 +145,48 @@ final class ReportViewModel: ObservableObject {
         isSaving = true
         errorMessage = nil
         successMessage = nil
-        
+        var shouldCleanupImages = false
+
         do {
-            try await supabaseService.saveSession(session)
+            let imagePaths = try receiptImageStore.saveCompressedImages(
+                scanMetadata.selectedImages,
+                sessionId: session.id
+            )
+            shouldCleanupImages = true
+
+            var updatedSession = session
+            let resolvedReceiptDate = scanMetadata.ocrReceiptDate ?? scanMetadata.scanCapturedAt
+            let resolvedSource: ReceiptDateSource = scanMetadata.ocrReceiptDate == nil
+                ? .scanTimestampFallback
+                : .ocrExtracted
+            let resolvedHasTime = scanMetadata.ocrReceiptDate == nil
+                ? true
+                : scanMetadata.ocrReceiptDateHasTime
+
+            updatedSession.receiptDate = resolvedReceiptDate
+            updatedSession.receiptDateSource = resolvedSource
+            updatedSession.receiptDateHasTime = resolvedHasTime
+            updatedSession.receiptImagePaths = imagePaths
+
+            try await sessionStore.saveSession(updatedSession)
+
+            session = updatedSession
             isSaved = true
             successMessage = "Session saved successfully!"
-            
-        } catch let error as DatabaseError {
-            ErrorHandler.shared.log(error, context: "ReportViewModel.saveSession")
-            errorMessage = error.userMessage
-            
+
+        } catch let error as ReceiptImageStoreError {
+            ErrorHandler.shared.log(error, context: "ReportViewModel.saveSession.imageStore")
+            errorMessage = error.localizedDescription
+        } catch let error as SessionStoreError {
+            if shouldCleanupImages {
+                try? receiptImageStore.deleteImages(for: session.id)
+            }
+            ErrorHandler.shared.log(error, context: "ReportViewModel.saveSession.sessionStore")
+            errorMessage = error.localizedDescription
         } catch {
+            if shouldCleanupImages {
+                try? receiptImageStore.deleteImages(for: session.id)
+            }
             ErrorHandler.shared.log(error, context: "ReportViewModel.saveSession")
             errorMessage = "Failed to save session"
         }

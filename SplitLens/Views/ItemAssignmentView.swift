@@ -22,6 +22,7 @@ struct ItemAssignmentView: View {
     
     /// Fee allocations from previous screen (may be empty)
     private let feeAllocations: [FeeAllocation]
+    private let scanMetadata: ScanMetadata
     
     // MARK: - Initialization
     
@@ -31,6 +32,7 @@ struct ItemAssignmentView: View {
         paidBy: String,
         totalAmount: Double,
         feeAllocations: [FeeAllocation] = [],
+        scanMetadata: ScanMetadata,
         navigationPath: Binding<NavigationPath>
     ) {
         _viewModel = StateObject(wrappedValue: AssignmentViewModel(
@@ -39,6 +41,7 @@ struct ItemAssignmentView: View {
             paidBy: paidBy
         ))
         self.feeAllocations = feeAllocations
+        self.scanMetadata = scanMetadata
         _navigationPath = navigationPath
     }
     
@@ -215,7 +218,7 @@ struct ItemAssignmentView: View {
             feeAllocations: feeAllocations
         )
         
-        navigationPath.append(Route.finalReport(session))
+        navigationPath.append(Route.finalReport(session, scanMetadata))
     }
 }
 
@@ -320,6 +323,7 @@ struct ItemAssignmentCard: View {
             paidBy: "Alice",
             totalAmount: 65.96,
             feeAllocations: [],
+            scanMetadata: .empty,
             navigationPath: .constant(NavigationPath())
         )
     }

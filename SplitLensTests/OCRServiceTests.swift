@@ -101,6 +101,7 @@ final class OCRServiceTests: XCTestCase {
             subtotal: 10.00,
             total: 10.00,  // Page 1 total
             storeName: "Store A",
+            receiptDateISO: nil,
             rawText: nil
         )
         
@@ -110,6 +111,7 @@ final class OCRServiceTests: XCTestCase {
             subtotal: 30.00,
             total: 32.50,  // Page 2 total (final receipt total)
             storeName: nil,
+            receiptDateISO: nil,
             rawText: nil
         )
         
@@ -589,6 +591,7 @@ final class StructuredReceiptDataTests: XCTestCase {
             subtotal: 10.00,
             total: 11.00,  // Explicit total
             storeName: nil,
+            receiptDateISO: nil,
             rawText: nil
         )
         
@@ -608,6 +611,7 @@ final class StructuredReceiptDataTests: XCTestCase {
             subtotal: nil,
             total: nil,  // No explicit total
             storeName: nil,
+            receiptDateISO: nil,
             rawText: nil
         )
         
@@ -623,6 +627,7 @@ final class StructuredReceiptDataTests: XCTestCase {
             subtotal: nil,
             total: nil,
             storeName: nil,
+            receiptDateISO: nil,
             rawText: nil
         )
         
@@ -636,6 +641,7 @@ final class StructuredReceiptDataTests: XCTestCase {
             subtotal: nil,
             total: nil,
             storeName: nil,
+            receiptDateISO: nil,
             rawText: "Some raw text"
         )
         
@@ -657,6 +663,7 @@ final class StructuredReceiptDataTests: XCTestCase {
             subtotal: 23.00,
             total: 30.25,
             storeName: "Test Store",
+            receiptDateISO: nil,
             rawText: nil
         )
         
@@ -680,6 +687,7 @@ final class StructuredReceiptDataTests: XCTestCase {
             subtotal: nil,
             total: nil,
             storeName: nil,
+            receiptDateISO: nil,
             rawText: nil
         )
         

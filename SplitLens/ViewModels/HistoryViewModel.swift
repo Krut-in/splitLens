@@ -61,7 +61,8 @@ final class HistoryViewModel: ObservableObject {
     
     // MARK: - Dependencies
     
-    private let supabaseService: SupabaseServiceProtocol
+    private let sessionStore: SessionStoreProtocol
+    private let receiptImageStore: ReceiptImageStoreProtocol
     
     // MARK: - Computed Properties
     
@@ -82,13 +83,17 @@ final class HistoryViewModel: ObservableObject {
     
     /// Formatted total amount
     var formattedTotalAmount: String {
-        formatCurrency(totalAmount)
+        CurrencyFormatter.shared.format(totalAmount)
     }
     
     // MARK: - Initialization
     
-    init(supabaseService: SupabaseServiceProtocol = DependencyContainer.shared.supabaseService) {
-        self.supabaseService = supabaseService
+    init(
+        sessionStore: SessionStoreProtocol = DependencyContainer.shared.sessionStore,
+        receiptImageStore: ReceiptImageStoreProtocol = DependencyContainer.shared.receiptImageStore
+    ) {
+        self.sessionStore = sessionStore
+        self.receiptImageStore = receiptImageStore
     }
     
     // MARK: - Data Loading
@@ -99,13 +104,13 @@ final class HistoryViewModel: ObservableObject {
         errorMessage = nil
         
         do {
-            let fetchedSessions = try await supabaseService.fetchAllSessions(limit: nil)
+            let fetchedSessions = try await sessionStore.fetchAllSessions(limit: nil)
             sessions = fetchedSessions
             applyFilters()
             
-        } catch let error as DatabaseError {
+        } catch let error as SessionStoreError {
             ErrorHandler.shared.log(error, context: "HistoryViewModel.loadSessions")
-            errorMessage = error.userMessage
+            errorMessage = error.localizedDescription
             
         } catch {
             ErrorHandler.shared.log(error, context: "HistoryViewModel.loadSessions")
@@ -121,13 +126,13 @@ final class HistoryViewModel: ObservableObject {
         errorMessage = nil
         
         do {
-            let fetchedSessions = try await supabaseService.fetchRecentSessions(count: count)
+            let fetchedSessions = try await sessionStore.fetchRecentSessions(count: count)
             sessions = fetchedSessions
             applyFilters()
             
-        } catch let error as DatabaseError {
+        } catch let error as SessionStoreError {
             ErrorHandler.shared.log(error, context: "HistoryViewModel.loadRecentSessions")
-            errorMessage = error.userMessage
+            errorMessage = error.localizedDescription
             
         } catch {
             ErrorHandler.shared.log(error, context: "HistoryViewModel.loadRecentSessions")
@@ -146,14 +151,33 @@ final class HistoryViewModel: ObservableObject {
     
     /// Deletes a session
     func deleteSession(_ session: ReceiptSession) async {
+        errorMessage = nil
+
         do {
-            try await supabaseService.deleteSession(id: session.id)
+            let sessionSnapshot = session
+            try await sessionStore.deleteSession(id: session.id)
+
+            do {
+                try receiptImageStore.deleteImages(for: session.id)
+            } catch {
+                ErrorHandler.shared.log(error, context: "HistoryViewModel.deleteSession.imageStore")
+
+                do {
+                    try await sessionStore.saveSession(sessionSnapshot)
+                    errorMessage = "Could not delete receipt images. Session was restored to keep history consistent."
+                } catch {
+                    ErrorHandler.shared.log(error, context: "HistoryViewModel.deleteSession.rollback")
+                    errorMessage = "Critical delete failure. Session could not be safely rolled back."
+                }
+                return
+            }
+
             sessions.removeAll { $0.id == session.id }
             applyFilters()
             
-        } catch let error as DatabaseError {
+        } catch let error as SessionStoreError {
             ErrorHandler.shared.log(error, context: "HistoryViewModel.deleteSession")
-            errorMessage = error.userMessage
+            errorMessage = error.localizedDescription
             
         } catch {
             ErrorHandler.shared.log(error, context: "HistoryViewModel.deleteSession")
@@ -199,9 +223,9 @@ final class HistoryViewModel: ObservableObject {
         // Apply sorting
         switch sortOption {
         case .dateNewest:
-            result.sort { $0.createdAt > $1.createdAt }
+            result.sort { $0.receiptDate > $1.receiptDate }
         case .dateOldest:
-            result.sort { $0.createdAt < $1.createdAt }
+            result.sort { $0.receiptDate < $1.receiptDate }
         case .amountHighest:
             result.sort { $0.totalAmount > $1.totalAmount }
         case .amountLowest:
@@ -233,7 +257,7 @@ final class HistoryViewModel: ObservableObject {
     
     /// Gets sessions for a specific date range
     func sessions(in dateRange: ClosedRange<Date>) -> [ReceiptSession] {
-        sessions.filter { dateRange.contains($0.createdAt) }
+        sessions.filter { dateRange.contains($0.receiptDate) }
     }
     
     /// Gets total spent in a date range
@@ -248,7 +272,10 @@ final class HistoryViewModel: ObservableObject {
 extension HistoryViewModel {
     /// Creates a view model with sample data for previews
    static func sample() -> HistoryViewModel {
-        let vm = HistoryViewModel(supabaseService: MockSupabaseService.shared)
+        let vm = HistoryViewModel(
+            sessionStore: InMemorySessionStore(sampleSessions: ReceiptSession.samples),
+            receiptImageStore: LocalReceiptImageStore()
+        )
         Task {
             await vm.loadSessions()
         }

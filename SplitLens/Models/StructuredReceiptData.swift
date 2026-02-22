@@ -26,6 +26,9 @@ struct StructuredReceiptData: Codable {
     
     /// Store or vendor name (if detected)
     let storeName: String?
+
+    /// Receipt date/time in ISO-8601 format (if detected by OCR).
+    let receiptDateISO: String?
     
     /// Raw OCR text (only present when using legacy Vision API)
     let rawText: String?
@@ -178,6 +181,24 @@ extension StructuredReceiptData {
         let feesTotal = fees?.reduce(0.0) { $0 + $1.amount } ?? 0
         return itemsTotal + feesTotal
     }
+
+    /// Parsed receipt date from `receiptDateISO`, if available and valid.
+    var parsedReceiptDate: Date? {
+        guard let receiptDateISO else { return nil }
+        if let date = ISO8601DateFormatter.withFractional.date(from: receiptDateISO) {
+            return date
+        }
+        if let date = ISO8601DateFormatter.withoutFractional.date(from: receiptDateISO) {
+            return date
+        }
+        return ReceiptDateOnlyParser.parseLocalDateOnly(receiptDateISO)
+    }
+
+    /// Whether OCR returned a receipt date with explicit time.
+    var parsedReceiptDateHasTime: Bool {
+        guard let receiptDateISO else { return false }
+        return receiptDateISO.contains("T")
+    }
 }
 
 // MARK: - Sample Data
@@ -196,7 +217,48 @@ extension StructuredReceiptData {
             subtotal: 24.97,
             total: 29.92,
             storeName: "Instacart",
+            receiptDateISO: nil,
             rawText: nil
         )
+    }
+}
+
+private extension ISO8601DateFormatter {
+    static let withFractional: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
+    static let withoutFractional: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
+}
+
+private enum ReceiptDateOnlyParser {
+    static func parseLocalDateOnly(_ value: String) -> Date? {
+        let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let parts = normalized.split(separator: "-")
+        guard parts.count == 3,
+              let year = Int(parts[0]),
+              let month = Int(parts[1]),
+              let day = Int(parts[2]) else {
+            return nil
+        }
+
+        var components = DateComponents()
+        components.year = year
+        components.month = month
+        components.day = day
+        components.hour = 12
+        components.minute = 0
+        components.second = 0
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+
+        return calendar.date(from: components)
     }
 }

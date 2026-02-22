@@ -100,7 +100,8 @@ final class ReportGenerationEngine: ReportGenerationEngineProtocol {
         
         for item in session.items {
             report += "\(item.name)\n"
-            report += "  Qty: \(item.quantity) × \(formatCurrency(item.price)) = \(item.formattedTotalPrice)\n"
+            // Keep currency formatting centralized to avoid drift across reports.
+            report += "  Qty: \(item.quantity) × \(CurrencyFormatter.shared.format(item.price)) = \(item.formattedTotalPrice)\n"
             
             if item.isAssigned {
                 if item.sharingCount > 1 {

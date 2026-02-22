@@ -42,6 +42,7 @@ interface ReceiptData {
     subtotal: number | null
     total: number | null
     storeName: string | null
+    receiptDateISO?: string | null
     rawText?: string
     warnings?: string[]  // NEW: Partial failure warnings
 }
@@ -138,6 +139,7 @@ CRITICAL RULES:
 6. EXCLUDE dates, order numbers, and metadata unless it's the store name
 7. Identify delivery fees, service fees, tips separately from items
 8. Identify subtotal and total amounts
+9. If a receipt date is visible, return it as ISO-8601 in receiptDateISO
 
 Return ONLY valid JSON in this exact format (no markdown, no explanation):
 {
@@ -145,12 +147,13 @@ Return ONLY valid JSON in this exact format (no markdown, no explanation):
   "fees": [{"type": "delivery", "amount": 4.95}],
   "subtotal": 24.97,
   "total": 29.92,
-  "storeName": "Store Name or null"
+  "storeName": "Store Name or null",
+  "receiptDateISO": "2026-01-15T19:30:00Z or null"
 }
 
 IMPORTANT: "price" = total amount for that line item (what customer pays), NOT per-unit price.
 
-If you cannot identify any items, return: {"items": [], "fees": [], "subtotal": null, "total": null, "storeName": null}`
+If you cannot identify any items, return: {"items": [], "fees": [], "subtotal": null, "total": null, "storeName": null, "receiptDateISO": null}`
 
     // Use stable Gemini 2.0 Flash model (confirmed working)
     const models = [
@@ -231,7 +234,8 @@ If you cannot identify any items, return: {"items": [], "fees": [], "subtotal": 
                 })) : [],
                 subtotal: parsed.subtotal ? Number(parsed.subtotal) : null,
                 total: parsed.total ? Number(parsed.total) : null,
-                storeName: parsed.storeName || null
+                storeName: parsed.storeName || null,
+                receiptDateISO: typeof parsed.receiptDateISO === 'string' ? parsed.receiptDateISO : null
             }
 
         } catch (err) {
@@ -272,6 +276,7 @@ async function callLegacyVisionAPI(base64Image: string, apiKey: string): Promise
         subtotal: null,
         total: null,
         storeName: null,
+        receiptDateISO: null,
         rawText: rawText
     }
 }
@@ -291,7 +296,8 @@ function getMockReceiptData(): ReceiptData {
         ],
         subtotal: 61.95,
         total: 65.96,
-        storeName: "WALMART SUPERCENTER"
+        storeName: "WALMART SUPERCENTER",
+        receiptDateISO: null
     }
 }
 
@@ -366,6 +372,7 @@ function mergeReceiptData(results: SingleImageResult[], warnings: string[]): Rec
     let storeName: string | null = null
     let subtotal: number | null = null
     let total: number | null = null
+    let receiptDateISO: string | null = null
     let rawTexts: string[] = []
 
     for (const result of results) {
@@ -382,6 +389,11 @@ function mergeReceiptData(results: SingleImageResult[], warnings: string[]): Rec
         // Use first non-null store name
         if (storeName === null && data.storeName) {
             storeName = data.storeName
+        }
+
+        // Use first non-null receipt date
+        if (receiptDateISO === null && data.receiptDateISO) {
+            receiptDateISO = data.receiptDateISO
         }
 
         // Use last non-null total (receipt totals typically on last page)
@@ -413,6 +425,7 @@ function mergeReceiptData(results: SingleImageResult[], warnings: string[]): Rec
         subtotal,
         total,
         storeName,
+        receiptDateISO,
     }
 
     // Add raw text if present

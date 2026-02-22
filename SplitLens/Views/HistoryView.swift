@@ -68,6 +68,21 @@ struct HistoryView: View {
         .task {
             await viewModel.loadSessions()
         }
+        .alert(
+            "History Error",
+            isPresented: Binding(
+                get: { viewModel.errorMessage != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        viewModel.errorMessage = nil
+                    }
+                }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(viewModel.errorMessage ?? "An unexpected error occurred.")
+        }
     }
     
     // MARK: - Sections
@@ -163,6 +178,7 @@ struct HistoryRow: View {
                 }
                 
                 HStack(spacing: 12) {
+                    Label(session.formattedHistoryDate, systemImage: "calendar")
                     Label("\(session.participantCount) people", systemImage: "person.2.fill")
                     Label("\(session.itemCount) items", systemImage: "list.bullet")
                 }
@@ -180,10 +196,10 @@ struct HistoryRow: View {
     private var dateComponents: (day: String, month: String) {
         let formatter = DateFormatter()
         formatter.dateFormat = "dd"
-        let day = formatter.string(from: session.createdAt)
+        let day = formatter.string(from: session.receiptDate)
         
         formatter.dateFormat = "MMM"
-        let month = formatter.string(from: session.createdAt)
+        let month = formatter.string(from: session.receiptDate)
         
         return (day, month)
     }

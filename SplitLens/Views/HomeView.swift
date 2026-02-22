@@ -132,30 +132,32 @@ struct HomeView: View {
         switch route {
         case .imageUpload:
             ImageUploadView(navigationPath: $navigationPath)
-        case .itemsEditor(let items, let fees):
-            ItemsEditorView(items: items, fees: fees, navigationPath: $navigationPath)
-        case .participantsEntry(let items, let fees):
-            ParticipantsEntryView(items: items, fees: fees, navigationPath: $navigationPath)
-        case .taxTipAllocation(let items, let fees, let participants, let paidBy, let total):
+        case .itemsEditor(let items, let fees, let scanMetadata):
+            ItemsEditorView(items: items, fees: fees, scanMetadata: scanMetadata, navigationPath: $navigationPath)
+        case .participantsEntry(let items, let fees, let scanMetadata):
+            ParticipantsEntryView(items: items, fees: fees, scanMetadata: scanMetadata, navigationPath: $navigationPath)
+        case .taxTipAllocation(let items, let fees, let participants, let paidBy, let total, let scanMetadata):
             TaxTipAllocationView(
                 items: items,
                 fees: fees,
                 participants: participants,
                 paidBy: paidBy,
                 totalAmount: total,
+                scanMetadata: scanMetadata,
                 navigationPath: $navigationPath
             )
-        case .itemAssignment(let items, let participants, let paidBy, let total, let feeAllocations):
+        case .itemAssignment(let items, let participants, let paidBy, let total, let feeAllocations, let scanMetadata):
             ItemAssignmentView(
                 items: items,
                 participants: participants,
                 paidBy: paidBy,
                 totalAmount: total,
                 feeAllocations: feeAllocations,
+                scanMetadata: scanMetadata,
                 navigationPath: $navigationPath
             )
-        case .finalReport(let session):
-            FinalReportView(session: session, navigationPath: $navigationPath)
+        case .finalReport(let session, let scanMetadata):
+            FinalReportView(session: session, scanMetadata: scanMetadata, navigationPath: $navigationPath)
         case .history:
             HistoryView(navigationPath: $navigationPath)
         case .sessionDetail(let session):

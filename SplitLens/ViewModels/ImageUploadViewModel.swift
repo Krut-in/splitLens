@@ -49,6 +49,15 @@ final class ImageUploadViewModel: ObservableObject {
     
     /// Detected fees from receipt
     @Published var detectedFees: [Fee] = []
+
+    /// OCR-detected receipt date (if available from structured extraction)
+    @Published var detectedReceiptDate: Date?
+
+    /// Whether OCR-provided receipt date included a time component
+    @Published var detectedReceiptDateHasTime = false
+
+    /// Timestamp when this scan flow started (fallback receipt date source)
+    @Published var scanCapturedAt: Date?
     
     // MARK: - Total Validation Properties
     
@@ -198,6 +207,9 @@ final class ImageUploadViewModel: ObservableObject {
         // Append to existing images or replace
         selectedImages.append(contentsOf: loadedImages)
         currentImageIndex = selectedImages.count - loadedImages.count
+        if scanCapturedAt == nil {
+            scanCapturedAt = Date()
+        }
         
         // Give haptic feedback
         HapticFeedback.shared.success()
@@ -210,6 +222,9 @@ final class ImageUploadViewModel: ObservableObject {
     func setImage(_ image: UIImage) async {
         selectedImages.append(image)
         currentImageIndex = selectedImages.count - 1
+        if scanCapturedAt == nil {
+            scanCapturedAt = Date()
+        }
         
         // Give haptic feedback
         HapticFeedback.shared.lightImpact()
@@ -229,6 +244,9 @@ final class ImageUploadViewModel: ObservableObject {
             extractedItems = []
             detectedTotal = nil
             detectedFees = []
+            detectedReceiptDate = nil
+            detectedReceiptDateHasTime = false
+            scanCapturedAt = nil
         } else if currentImageIndex >= selectedImages.count {
             currentImageIndex = selectedImages.count - 1
         }
@@ -274,6 +292,9 @@ final class ImageUploadViewModel: ObservableObject {
         ocrConfidence = nil
         detectedTotal = nil
         detectedFees = []
+        detectedReceiptDate = nil
+        detectedReceiptDateHasTime = false
+        scanCapturedAt = nil
         progressTracker.reset()
         userEnteredTotal = nil
         showTotalConfirmation = false
@@ -310,5 +331,15 @@ final class ImageUploadViewModel: ObservableObject {
     /// Whether the current state is ready to proceed
     var canProceed: Bool {
         !extractedItems.isEmpty && !isProcessing
+    }
+
+    /// Builds immutable scan metadata to carry through the flow.
+    func buildScanMetadata() -> ScanMetadata {
+        ScanMetadata(
+            scanCapturedAt: scanCapturedAt ?? Date(),
+            ocrReceiptDate: detectedReceiptDate,
+            ocrReceiptDateHasTime: detectedReceiptDateHasTime,
+            selectedImages: selectedImages
+        )
     }
 }

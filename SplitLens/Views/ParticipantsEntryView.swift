@@ -23,6 +23,7 @@ struct ParticipantsEntryView: View {
     
     /// Extracted fees from the receipt
     private let extractedFees: [Fee]
+    private let scanMetadata: ScanMetadata
     
     // MARK: - State
     
@@ -30,9 +31,15 @@ struct ParticipantsEntryView: View {
     
     // MARK: - Initialization
     
-    init(items: [ReceiptItem], fees: [Fee] = [], navigationPath: Binding<NavigationPath>) {
+    init(
+        items: [ReceiptItem],
+        fees: [Fee] = [],
+        scanMetadata: ScanMetadata,
+        navigationPath: Binding<NavigationPath>
+    ) {
         _itemsViewModel = StateObject(wrappedValue: ItemsEditorViewModel(items: items, fees: fees))
         self.extractedFees = fees
+        self.scanMetadata = scanMetadata
         _navigationPath = navigationPath
     }
     
@@ -120,7 +127,8 @@ struct ParticipantsEntryView: View {
                     extractedFees,
                     viewModel.participants,
                     viewModel.paidBy,
-                    itemsViewModel.grandTotal
+                    itemsViewModel.grandTotal,
+                    scanMetadata
                 )
             )
         } else {
@@ -131,7 +139,8 @@ struct ParticipantsEntryView: View {
                     viewModel.participants,
                     viewModel.paidBy,
                     itemsViewModel.totalAmount,
-                    []
+                    [],
+                    scanMetadata
                 )
             )
         }
@@ -293,6 +302,7 @@ struct ParticipantsEntryView: View {
         ParticipantsEntryView(
             items: ReceiptItem.samples,
             fees: [Fee(type: "tax", amount: 2.50)],
+            scanMetadata: .empty,
             navigationPath: .constant(NavigationPath())
         )
     }

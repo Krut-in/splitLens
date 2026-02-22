@@ -19,15 +19,25 @@ struct ItemsEditorView: View {
     @StateObject private var viewModel: ItemsEditorViewModel
     
     // MARK: - State
-    
+
     @State private var showAddItemSheet = false
     @State private var editingItem: ReceiptItem?
     @FocusState private var focusedField: UUID?
+
+    // MARK: - Properties
+
+    private let scanMetadata: ScanMetadata
     
     // MARK: - Initialization
     
-    init(items: [ReceiptItem], fees: [Fee] = [], navigationPath: Binding<NavigationPath>) {
+    init(
+        items: [ReceiptItem],
+        fees: [Fee] = [],
+        scanMetadata: ScanMetadata,
+        navigationPath: Binding<NavigationPath>
+    ) {
         _viewModel = StateObject(wrappedValue: ItemsEditorViewModel(items: items, fees: fees))
+        self.scanMetadata = scanMetadata
         _navigationPath = navigationPath
     }
     
@@ -52,7 +62,13 @@ struct ItemsEditorView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 if viewModel.isValid {
                     Button("Next") {
-                        navigationPath.append(Route.participantsEntry(viewModel.items, viewModel.extractedFees))
+                        navigationPath.append(
+                            Route.participantsEntry(
+                                viewModel.items,
+                                viewModel.extractedFees,
+                                scanMetadata
+                            )
+                        )
                     }
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(.green)
@@ -529,6 +545,7 @@ struct AddItemSheet: View {
     NavigationStack {
         ItemsEditorView(
             items: ReceiptItem.samples,
+            scanMetadata: .empty,
             navigationPath: .constant(NavigationPath())
         )
     }

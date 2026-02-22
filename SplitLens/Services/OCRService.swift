@@ -202,6 +202,7 @@ final class SupabaseOCRService: OCRServiceProtocol {
         var detectedTotal: Double?
         var detectedSubtotal: Double?
         var storeName: String?
+        var detectedReceiptDateISO: String?
         var rawTexts: [String] = []
         
         for (index, image) in images.enumerated() {
@@ -250,6 +251,10 @@ final class SupabaseOCRService: OCRServiceProtocol {
                 if storeName == nil, let name = pageData.storeName {
                     storeName = name
                 }
+
+                if detectedReceiptDateISO == nil, let receiptDateISO = pageData.receiptDateISO {
+                    detectedReceiptDateISO = receiptDateISO
+                }
                 
                 // Collect raw text if available
                 if let rawText = pageData.rawText {
@@ -284,6 +289,7 @@ final class SupabaseOCRService: OCRServiceProtocol {
             subtotal: detectedSubtotal,
             total: detectedTotal,
             storeName: storeName,
+            receiptDateISO: detectedReceiptDateISO,
             rawText: combinedRawText
         )
     }
@@ -575,4 +581,3 @@ final class SupabaseOCRService: OCRServiceProtocol {
         }
     }
 }
-

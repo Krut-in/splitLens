@@ -17,6 +17,10 @@
 		AA0005 /* ReceiptItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0005 /* ReceiptItem.swift */; };
 		AA0006 /* ReceiptSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0006 /* ReceiptSession.swift */; };
 		AA0007 /* SplitLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0007 /* SplitLog.swift */; };
+		A1100001A1B2C3D4E5F60001 /* ScanMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1100001A1B2C3D4E5F60001 /* ScanMetadata.swift */; };
+		A1100002A1B2C3D4E5F60001 /* StoredSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1100002A1B2C3D4E5F60001 /* StoredSession.swift */; };
+		A1100003A1B2C3D4E5F60001 /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1100003A1B2C3D4E5F60001 /* SessionStore.swift */; };
+		A1100004A1B2C3D4E5F60001 /* ReceiptImageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1100004A1B2C3D4E5F60001 /* ReceiptImageStore.swift */; };
 		AA0008 /* OCRService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0008 /* OCRService.swift */; };
 		AA0009 /* SupabaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0009 /* SupabaseService.swift */; };
 		AA0010 /* BillSplitEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0010 /* BillSplitEngine.swift */; };
@@ -94,6 +98,10 @@
 		BB0005 /* ReceiptItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptItem.swift; sourceTree = "<group>"; };
 		BB0006 /* ReceiptSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptSession.swift; sourceTree = "<group>"; };
 		BB0007 /* SplitLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplitLog.swift; sourceTree = "<group>"; };
+		B1100001A1B2C3D4E5F60001 /* ScanMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanMetadata.swift; sourceTree = "<group>"; };
+		B1100002A1B2C3D4E5F60001 /* StoredSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoredSession.swift; sourceTree = "<group>"; };
+		B1100003A1B2C3D4E5F60001 /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
+		B1100004A1B2C3D4E5F60001 /* ReceiptImageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptImageStore.swift; sourceTree = "<group>"; };
 		BB0008 /* OCRService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OCRService.swift; sourceTree = "<group>"; };
 		BB0009 /* SupabaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseService.swift; sourceTree = "<group>"; };
 		BB0010 /* BillSplitEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BillSplitEngine.swift; sourceTree = "<group>"; };
@@ -194,6 +202,7 @@
 				BB0021 /* Info.plist */,
 				EE0004 /* Models */,
 				EE0005 /* Services */,
+				EE0011 /* Persistence */,
 				EE0006 /* ViewModels */,
 				EE0007 /* Views */,
 				EE0008 /* Configuration */,
@@ -220,6 +229,7 @@
 				F37A12672EE354CB00077FE5 /* StructuredReceiptData.swift */,
 				BB0005 /* ReceiptItem.swift */,
 				BB0006 /* ReceiptSession.swift */,
+				B1100001A1B2C3D4E5F60001 /* ScanMetadata.swift */,
 				BB0007 /* SplitLog.swift */,
 				F3D49E0F2F27BB780010FDAC /* PageProcessingResult.swift */,
 			);
@@ -302,6 +312,16 @@
 				BB0004 /* Preview Assets.xcassets */,
 			);
 			path = "Preview Content";
+			sourceTree = "<group>";
+		};
+		EE0011 /* Persistence */ = {
+			isa = PBXGroup;
+			children = (
+				B1100002A1B2C3D4E5F60001 /* StoredSession.swift */,
+				B1100003A1B2C3D4E5F60001 /* SessionStore.swift */,
+				B1100004A1B2C3D4E5F60001 /* ReceiptImageStore.swift */,
+			);
+			path = Persistence;
 			sourceTree = "<group>";
 		};
 		F348DE402EDAC20E003D37D7 /* Navigation */ = {
@@ -433,6 +453,10 @@
 				AA0005 /* ReceiptItem.swift in Sources */,
 				AA0006 /* ReceiptSession.swift in Sources */,
 				AA0007 /* SplitLog.swift in Sources */,
+				A1100001A1B2C3D4E5F60001 /* ScanMetadata.swift in Sources */,
+				A1100002A1B2C3D4E5F60001 /* StoredSession.swift in Sources */,
+				A1100003A1B2C3D4E5F60001 /* SessionStore.swift in Sources */,
+				A1100004A1B2C3D4E5F60001 /* ReceiptImageStore.swift in Sources */,
 				F348DE392EDAC0F7003D37D7 /* ActionButton.swift in Sources */,
 				F348DE3A2EDAC0F7003D37D7 /* OweLentChart.swift in Sources */,
 				F3CAC4912EDB538F004D4E76 /* AnimatedGradientBackground.swift in Sources */,

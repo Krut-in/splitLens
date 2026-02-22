@@ -18,6 +18,7 @@ struct SessionDetailView: View {
     @State private var showShareSheet = false
     @State private var shareText = ""
     @Environment(\.dismiss) private var dismiss
+    private let receiptImageStore = DependencyContainer.shared.receiptImageStore
     
     // MARK: - Body
     
@@ -40,6 +41,11 @@ struct SessionDetailView: View {
                     
                     // Summary cards
                     summarySection
+
+                    // Receipt images (if available)
+                    if !session.receiptImagePaths.isEmpty {
+                        receiptImagesSection
+                    }
                     
                     // Items list
                     itemsSection
@@ -135,6 +141,72 @@ struct SessionDetailView: View {
             )
         }
     }
+
+    private var receiptImagesSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Receipt Images")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(.primary)
+
+                Spacer()
+
+                Text("\(session.receiptImagePaths.count) page(s)")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(Array(session.receiptImagePaths.enumerated()), id: \.offset) { index, path in
+                        receiptImageCard(path: path, index: index)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+
+            if missingImageCount > 0 {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                    Text("\(missingImageCount) image(s) unavailable on this device.")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func receiptImageCard(path: String, index: Int) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let image = receiptImageStore.loadImage(atPath: path) {
+                Image(uiImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 160, height: 200)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+            } else {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(.tertiarySystemBackground))
+                    .frame(width: 160, height: 200)
+                    .overlay {
+                        VStack(spacing: 8) {
+                            Image(systemName: "photo")
+                                .font(.system(size: 22))
+                                .foregroundStyle(.secondary)
+                            Text("Missing")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+            }
+
+            Text("Page \(index + 1)")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.secondary)
+        }
+    }
     
     private var itemsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -208,6 +280,12 @@ struct SessionDetailView: View {
                     SplitLogRow(log: split, onTap: nil)
                 }
             }
+        }
+    }
+
+    private var missingImageCount: Int {
+        session.receiptImagePaths.reduce(0) { total, path in
+            total + (receiptImageStore.loadImage(atPath: path) == nil ? 1 : 0)
         }
     }
 }

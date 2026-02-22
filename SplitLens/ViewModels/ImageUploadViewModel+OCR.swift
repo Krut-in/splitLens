@@ -28,6 +28,8 @@ extension ImageUploadViewModel {
             extractedItems = []
             pageResults = []
             failedPageIndices = []
+            detectedReceiptDate = nil
+            detectedReceiptDateHasTime = false
             progressTracker.start()
             
             // Provide haptic feedback for OCR start
@@ -104,7 +106,8 @@ extension ImageUploadViewModel {
         var allItems: [ExtractedItem] = []
         var allFees: [Fee] = []
         var latestTotal: Double?
-        var storeName: String?
+        var receiptDate: Date?
+        var receiptDateHasTime = false
         
         // For 3+ images, try batch processing first (uses edge function's multi-image support)
         if selectedImages.count >= 2 {
@@ -117,7 +120,8 @@ extension ImageUploadViewModel {
                 allItems = batchResult.items
                 allFees = batchResult.fees ?? []
                 latestTotal = batchResult.total
-                storeName = batchResult.storeName
+                receiptDate = batchResult.parsedReceiptDate
+                receiptDateHasTime = batchResult.parsedReceiptDateHasTime
                 
                 // Create successful page results for all pages
                 for index in 0..<selectedImages.count {
@@ -140,7 +144,13 @@ extension ImageUploadViewModel {
                 }
                 
                 progressTracker.updateState(.parsing)
-                finalizePageProcessing(items: allItems, fees: allFees, total: latestTotal)
+                finalizePageProcessing(
+                    items: allItems,
+                    fees: allFees,
+                    total: latestTotal,
+                    receiptDate: receiptDate,
+                    receiptDateHasTime: receiptDateHasTime
+                )
                 return
                 
             } catch {
@@ -203,8 +213,9 @@ extension ImageUploadViewModel {
                 }
                 
                 // Use first store name found
-                if storeName == nil, let name = pageData.storeName {
-                    storeName = name
+                if receiptDate == nil, let parsedDate = pageData.parsedReceiptDate {
+                    receiptDate = parsedDate
+                    receiptDateHasTime = pageData.parsedReceiptDateHasTime
                 }
                 
             } catch let error as OCRError {
@@ -218,7 +229,13 @@ extension ImageUploadViewModel {
         }
         
         progressTracker.updateState(.parsing)
-        finalizePageProcessing(items: allItems, fees: allFees, total: latestTotal)
+        finalizePageProcessing(
+            items: allItems,
+            fees: allFees,
+            total: latestTotal,
+            receiptDate: receiptDate,
+            receiptDateHasTime: receiptDateHasTime
+        )
     }
     
     /// Adds a failed page result
@@ -236,7 +253,13 @@ extension ImageUploadViewModel {
     }
     
     /// Finalizes page processing with merged results
-    private func finalizePageProcessing(items: [ExtractedItem], fees: [Fee], total: Double?) {
+    private func finalizePageProcessing(
+        items: [ExtractedItem],
+        fees: [Fee],
+        total: Double?,
+        receiptDate: Date?,
+        receiptDateHasTime: Bool
+    ) {
         // Convert to ReceiptItems
         extractedItems = items.map { $0.toReceiptItem() }
         
@@ -250,6 +273,8 @@ extension ImageUploadViewModel {
         }
         
         detectedTotal = total
+        detectedReceiptDate = receiptDate
+        detectedReceiptDateHasTime = receiptDateHasTime
         ocrConfidence = 0.95
         
         // Determine final state
@@ -278,6 +303,9 @@ extension ImageUploadViewModel {
         if let image = image {
             if !selectedImages.contains(where: { $0 === image }) {
                 selectedImages = [image]
+                if scanCapturedAt == nil {
+                    scanCapturedAt = Date()
+                }
             }
         }
         await processAllImages()

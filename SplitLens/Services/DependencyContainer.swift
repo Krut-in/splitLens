@@ -20,6 +20,12 @@ final class DependencyContainer {
     
     /// Database service for persistence
     let supabaseService: SupabaseServiceProtocol
+
+    /// Local store for durable session history.
+    let sessionStore: SessionStoreProtocol
+
+    /// Local receipt image store.
+    let receiptImageStore: ReceiptImageStoreProtocol
     
     /// Bill splitting calculation service
     let billSplitEngine: BillSplitEngineProtocol
@@ -59,6 +65,15 @@ final class DependencyContainer {
                 print("ℹ️ Using MOCK services: useMockServices = true")
             }
         }
+
+        do {
+            self.sessionStore = try SwiftDataSessionStore()
+        } catch {
+            ErrorHandler.shared.log(error, context: "DependencyContainer.SwiftDataSessionStore")
+            self.sessionStore = InMemorySessionStore()
+        }
+
+        self.receiptImageStore = LocalReceiptImageStore()
         
         // These services are the same regardless of config
         self.billSplitEngine = AdvancedBillSplitEngine()

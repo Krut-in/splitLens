@@ -29,8 +29,8 @@ struct FinalReportView: View {
     
     // MARK: - Initialization
     
-    init(session: ReceiptSession, navigationPath: Binding<NavigationPath>) {
-        _viewModel = StateObject(wrappedValue: ReportViewModel(session: session))
+    init(session: ReceiptSession, scanMetadata: ScanMetadata, navigationPath: Binding<NavigationPath>) {
+        _viewModel = StateObject(wrappedValue: ReportViewModel(session: session, scanMetadata: scanMetadata))
         _navigationPath = navigationPath
     }
     
@@ -303,11 +303,26 @@ struct FinalReportView: View {
     
     private var actionsSection: some View {
         VStack(spacing: 14) {
+            if let errorMessage = viewModel.errorMessage {
+                HStack(spacing: 10) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                    Text(errorMessage)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.primary)
+                    Spacer()
+                }
+                .padding(12)
+                .background(Color.orange.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+            }
+
             // Save button
             ActionButton(
                 icon: "square.and.arrow.down.fill",
                 title: viewModel.isSaved ? "Saved!" : "Save to History",
                 color: viewModel.isSaved ? .green : .blue,
+                isLoading: viewModel.isSaving,
                 isDisabled: viewModel.isSaved || viewModel.isSaving
             ) {
                 Task {
@@ -381,6 +396,7 @@ struct FinalReportView: View {
     NavigationStack {
         FinalReportView(
             session: ReceiptSession.sample,
+            scanMetadata: .empty,
             navigationPath: .constant(NavigationPath())
         )
     }
