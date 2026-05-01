@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import Combine
 
 @MainActor
 final class ParticipantsViewModel: ObservableObject {
@@ -43,10 +44,58 @@ final class ParticipantsViewModel: ObservableObject {
     }
     
     // MARK: - Initialization
-    
-    init(participants: [String] = [], paidBy: String = "") {
-        self.participants = participants
-        self.paidBy = paidBy
+
+    private let scanId: UUID?
+    private let scanDraftStore: ScanDraftStoreProtocol
+    private var cancellables = Set<AnyCancellable>()
+
+    init(
+        participants: [String] = [],
+        paidBy: String = "",
+        scanId: UUID? = nil,
+        scanDraftStore: ScanDraftStoreProtocol = DependencyContainer.shared.scanDraftStore
+    ) {
+        self.scanId = scanId
+        self.scanDraftStore = scanDraftStore
+
+        // Restore prior participants and payer from the draft if present.
+        if let scanId, let draft = scanDraftStore.draft(for: scanId) {
+            let restoredParticipants = draft.participants ?? participants
+            self.participants = restoredParticipants
+            // Validate the restored payer against the restored participants.
+            // The payer might have been removed from the participant list on
+            // a prior visit; in that case fall back to the constructor value.
+            if let restoredPayer = draft.paidBy, restoredParticipants.contains(restoredPayer) {
+                self.paidBy = restoredPayer
+            } else {
+                self.paidBy = restoredParticipants.contains(paidBy) ? paidBy : ""
+            }
+        } else {
+            self.participants = participants
+            self.paidBy = paidBy
+        }
+
+        guard scanId != nil else { return }
+
+        $participants
+            .dropFirst()
+            .sink { [weak self] newParticipants in
+                guard let self, let scanId = self.scanId else { return }
+                self.scanDraftStore.update(scanId: scanId) { draft in
+                    draft.participants = newParticipants
+                }
+            }
+            .store(in: &cancellables)
+
+        $paidBy
+            .dropFirst()
+            .sink { [weak self] newPayer in
+                guard let self, let scanId = self.scanId else { return }
+                self.scanDraftStore.update(scanId: scanId) { draft in
+                    draft.paidBy = newPayer
+                }
+            }
+            .store(in: &cancellables)
     }
     
     // MARK: - Participant Management

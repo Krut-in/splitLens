@@ -36,7 +36,7 @@ struct ItemsEditorView: View {
         scanMetadata: ScanMetadata,
         navigationPath: Binding<NavigationPath>
     ) {
-        _viewModel = StateObject(wrappedValue: ItemsEditorViewModel(items: items, fees: fees))
+        _viewModel = StateObject(wrappedValue: ItemsEditorViewModel(items: items, fees: fees, scanId: scanMetadata.id))
         self.scanMetadata = scanMetadata
         _navigationPath = navigationPath
     }

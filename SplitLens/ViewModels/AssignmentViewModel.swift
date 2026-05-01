@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import Combine
 
 @MainActor
 final class AssignmentViewModel: ObservableObject {
@@ -50,6 +51,9 @@ final class AssignmentViewModel: ObservableObject {
     private let billSplitEngine: BillSplitEngineProtocol
     private let patternLearningEngine: PatternLearningEngineProtocol?
     private let storeName: String?
+    private let scanId: UUID?
+    private let scanDraftStore: ScanDraftStoreProtocol
+    private var cancellables = Set<AnyCancellable>()
 
     // MARK: - Computed Properties
 
@@ -110,15 +114,57 @@ final class AssignmentViewModel: ObservableObject {
         participants: [String],
         paidBy: String,
         storeName: String? = nil,
+        scanId: UUID? = nil,
         billSplitEngine: BillSplitEngineProtocol = DependencyContainer.shared.billSplitEngine,
-        patternLearningEngine: PatternLearningEngineProtocol? = DependencyContainer.shared.patternLearningEngine
+        patternLearningEngine: PatternLearningEngineProtocol? = DependencyContainer.shared.patternLearningEngine,
+        scanDraftStore: ScanDraftStoreProtocol = DependencyContainer.shared.scanDraftStore
     ) {
-        self.items = items
         self.participants = participants
         self.paidBy = paidBy
         self.storeName = storeName
+        self.scanId = scanId
         self.billSplitEngine = billSplitEngine
         self.patternLearningEngine = patternLearningEngine
+        self.scanDraftStore = scanDraftStore
+
+        // Restore prior assignments from the scan draft so that the user
+        // does not lose progress when navigating back to a previous step
+        // and forward again.
+        if let scanId,
+           let draft = scanDraftStore.draft(for: scanId),
+           let draftItems = draft.items {
+            let assignmentMap = Dictionary(
+                uniqueKeysWithValues: draftItems.map { ($0.id, $0.assignedTo) }
+            )
+            let participantSet = Set(participants)
+            self.items = items.map { item in
+                var updated = item
+                if let priorAssignees = assignmentMap[item.id] {
+                    // Drop assignees who are no longer participants. Without
+                    // this filter, removing a participant after assigning them
+                    // an item leaves the bill split engine computing a share
+                    // for someone who isn't on the receipt anymore.
+                    updated.assignedTo = priorAssignees.filter { participantSet.contains($0) }
+                }
+                return updated
+            }
+        } else {
+            self.items = items
+        }
+
+        // Persist any future change to `items` so that the assignments
+        // survive a back-then-forward navigation cycle.
+        if scanId != nil {
+            $items
+                .dropFirst()
+                .sink { [weak self] newItems in
+                    guard let self, let scanId = self.scanId else { return }
+                    self.scanDraftStore.update(scanId: scanId) { draft in
+                        draft.items = newItems
+                    }
+                }
+                .store(in: &cancellables)
+        }
     }
 
     // MARK: - Assignment Methods

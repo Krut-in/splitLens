@@ -162,27 +162,91 @@ final class ReportGenerationEngine: ReportGenerationEngineProtocol {
     }
     
     // MARK: - Shareable Summary
-    
-    /// Generates a concise summary suitable for messaging apps
+
+    /// Generates a rich text summary suitable for messaging apps.
+    /// Includes payer label, full per-item breakdown with assignees,
+    /// fee allocations, and what each person owes the payer.
     func generateShareableSummary(for session: ReceiptSession) -> String {
-        var summary = ""
-        
-        summary += "💸 Bill Split - \(session.formattedTotal)\n"
-        summary += "Paid by \(session.paidBy)\n\n"
-        
-        if session.computedSplits.isEmpty {
-            summary += "✅ All settled!"
+        var lines: [String] = []
+        let payer = session.paidBy
+        let totalParticipantCount = session.participants.count
+
+        // Header
+        lines.append("🧾 SplitLens")
+        if let storeName = session.storeName, !storeName.trimmingCharacters(in: .whitespaces).isEmpty {
+            lines.append(storeName)
+        }
+        lines.append(Self.shareDateFormatter.string(from: session.receiptDate))
+        lines.append("")
+
+        // Payer + total
+        lines.append("Paid by: \(payer)")
+        lines.append("Total: \(session.formattedTotal)")
+        lines.append("")
+
+        // Items
+        if !session.items.isEmpty {
+            lines.append("ITEMS")
+            for item in session.items {
+                let qtyLabel = item.quantity > 1 ? " (x\(item.quantity))" : ""
+                let priceLabel = CurrencyFormatter.shared.format(item.totalPrice)
+                lines.append("• \(item.name)\(qtyLabel) - \(priceLabel)")
+                let assignees = formatAssignees(
+                    item.assignedTo,
+                    totalParticipants: totalParticipantCount
+                )
+                lines.append("  Assigned to: \(assignees)")
+            }
+            lines.append("")
+        }
+
+        // Fees
+        if !session.feeAllocations.isEmpty {
+            lines.append("FEES")
+            for allocation in session.feeAllocations {
+                let amount = CurrencyFormatter.shared.format(allocation.fee.amount)
+                let strategy = allocation.strategy.displayName.lowercased()
+                lines.append("• \(allocation.fee.displayName) (\(strategy)): \(amount)")
+            }
+            lines.append("")
+        }
+
+        // Settlement section
+        let owedToPayer = session.computedSplits.filter { $0.to == payer }
+        if owedToPayer.isEmpty {
+            lines.append("✅ Everyone is settled with \(payer)")
         } else {
-            summary += "Please pay:\n"
-            for split in session.computedSplits {
-                summary += "• \(split.from) → \(split.to): \(split.formattedAmount)\n"
+            lines.append("WHO OWES \(payer.uppercased())")
+            for split in owedToPayer.sorted(by: { $0.from < $1.from }) {
+                lines.append("• \(split.from) owes \(split.formattedAmount)")
             }
         }
-        
-        summary += "\n- Sent via SplitLens 📱"
-        
-        return summary
+
+        lines.append("")
+        lines.append("Sent via SplitLens")
+
+        return lines.joined(separator: "\n")
     }
+
+    /// Formats an assignee list as either "Everyone" (when all participants are assigned)
+    /// or a comma-separated name list. Falls back to "Unassigned" for empty arrays.
+    private func formatAssignees(_ assignees: [String], totalParticipants: Int) -> String {
+        if assignees.isEmpty {
+            return "Unassigned"
+        }
+        if assignees.count >= totalParticipants && totalParticipants > 0 {
+            return "Everyone"
+        }
+        return assignees.joined(separator: ", ")
+    }
+
+    /// Date formatter used in the share summary header.
+    private static let shareDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter
+    }()
     
     // MARK: - Export Formats
     

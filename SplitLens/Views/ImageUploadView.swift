@@ -109,7 +109,12 @@ struct ImageUploadView: View {
             
             // Loading overlay (only show for single image)
             if viewModel.isProcessing && !viewModel.hasMultipleImages {
-                LoadingOverlay(message: "Analyzing receipt...")
+                LoadingOverlay(
+                    message: "Analyzing receipt",
+                    subMessage: viewModel.progressTracker.state.description,
+                    progress: viewModel.progressTracker.state.progressPercentage,
+                    style: .fullScreen
+                )
             }
         }
         .navigationTitle("Scan Receipt")
@@ -479,45 +484,11 @@ struct ImageUploadView: View {
     // MARK: - Progress Section
     
     private var progressSection: some View {
-        VStack(spacing: 12) {
-            // Progress bar
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(Color(.systemGray5))
-                        .frame(height: 12)
-                    
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(
-                            LinearGradient(
-                                colors: [.blue, .blue.opacity(0.8)],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .frame(width: geometry.size.width * viewModel.progressTracker.state.progressPercentage, height: 12)
-                        .animation(.easeInOut(duration: 0.3), value: viewModel.progressTracker.state.progressPercentage)
-                }
-            }
-            .frame(height: 12)
-            .padding(.horizontal)
-            
-            // Progress description
-            Text(viewModel.progressTracker.state.description)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(.secondary)
-            
-            // Time remaining
-            if let timeRemaining = viewModel.progressTracker.formattedTimeRemaining() {
-                Text(timeRemaining)
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(.secondarySystemBackground))
+        LoadingOverlay(
+            message: "Scanning your receipt",
+            subMessage: viewModel.progressTracker.state.description,
+            progress: viewModel.progressTracker.state.progressPercentage,
+            style: .inline
         )
         .padding(.horizontal)
     }

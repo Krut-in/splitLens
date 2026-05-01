@@ -17,7 +17,7 @@ struct ParticipantsEntryView: View {
 
     // MARK: - ViewModels
 
-    @StateObject private var viewModel = ParticipantsViewModel()
+    @StateObject private var viewModel: ParticipantsViewModel
     @StateObject private var itemsViewModel: ItemsEditorViewModel
 
     // MARK: - Properties
@@ -41,7 +41,8 @@ struct ParticipantsEntryView: View {
         scanMetadata: ScanMetadata,
         navigationPath: Binding<NavigationPath>
     ) {
-        _itemsViewModel = StateObject(wrappedValue: ItemsEditorViewModel(items: items, fees: fees))
+        _viewModel = StateObject(wrappedValue: ParticipantsViewModel(scanId: scanMetadata.id))
+        _itemsViewModel = StateObject(wrappedValue: ItemsEditorViewModel(items: items, fees: fees, scanId: scanMetadata.id))
         self.extractedFees = fees
         self.scanMetadata = scanMetadata
         _navigationPath = navigationPath

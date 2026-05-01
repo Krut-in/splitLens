@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import Combine
 
 @MainActor
 final class TaxTipAllocationViewModel: ObservableObject {
@@ -85,7 +86,11 @@ final class TaxTipAllocationViewModel: ObservableObject {
     }
     
     // MARK: - Initialization
-    
+
+    private let scanId: UUID?
+    private let scanDraftStore: ScanDraftStoreProtocol
+    private var cancellables = Set<AnyCancellable>()
+
     /// Creates a new TaxTipAllocationViewModel
     /// - Parameters:
     ///   - items: Receipt items for proportional calculations
@@ -93,28 +98,54 @@ final class TaxTipAllocationViewModel: ObservableObject {
     ///   - participants: List of participants
     ///   - paidBy: Person who paid the bill
     ///   - totalAmount: Total bill amount
+    ///   - scanId: ScanMetadata.id used to persist allocation choices.
+    ///   - scanDraftStore: Cache of in-progress edits.
     init(
         items: [ReceiptItem],
         fees: [Fee],
         participants: [String],
         paidBy: String,
-        totalAmount: Double
+        totalAmount: Double,
+        scanId: UUID? = nil,
+        scanDraftStore: ScanDraftStoreProtocol = DependencyContainer.shared.scanDraftStore
     ) {
         self.items = items
         self.participants = participants
         self.paidBy = paidBy
         self.totalAmount = totalAmount
-        
-        // Convert fees to fee allocations with default proportional strategy
-        self.feeAllocations = fees.map { fee in
-            FeeAllocation(
-                fee: fee,
-                strategy: AppConstants.FeeAllocation.defaultStrategy
-            )
+        self.scanId = scanId
+        self.scanDraftStore = scanDraftStore
+
+        // Restore prior allocations if the user has visited this screen
+        // before for the same scan. Falls back to the default strategy.
+        if let scanId,
+           let draft = scanDraftStore.draft(for: scanId),
+           let savedAllocations = draft.feeAllocations,
+           !savedAllocations.isEmpty {
+            self.feeAllocations = savedAllocations
+        } else {
+            self.feeAllocations = fees.map { fee in
+                FeeAllocation(
+                    fee: fee,
+                    strategy: AppConstants.FeeAllocation.defaultStrategy
+                )
+            }
         }
-        
+
         // Calculate initial item totals
         calculateItemTotals()
+
+        guard scanId != nil else { return }
+
+        $feeAllocations
+            .dropFirst()
+            .sink { [weak self] newAllocations in
+                guard let self, let scanId = self.scanId else { return }
+                self.scanDraftStore.update(scanId: scanId) { draft in
+                    draft.feeAllocations = newAllocations
+                }
+            }
+            .store(in: &cancellables)
     }
     
     // MARK: - Strategy Management

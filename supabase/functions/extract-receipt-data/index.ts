@@ -96,9 +96,15 @@ serve(async (req) => {
     } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Receipt extraction failed'
         console.error('Receipt Extraction Error:', error)
+
+        // Surface upstream rate limits as 429 so the iOS retry path can back off
+        // properly instead of treating it like a generic outage.
+        const upstreamStatus = (error as Error & { upstreamStatus?: number }).upstreamStatus
+        const status = upstreamStatus === 429 ? 429 : 500
+
         return new Response(
             JSON.stringify({ error: errorMessage }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
     }
 })
@@ -129,17 +135,32 @@ async function callGeminiVision(base64Image: string, apiKey: string): Promise<Re
 
 CRITICAL RULES:
 1. Include ONLY products being purchased (food items, goods, etc.)
-2. Use the FINAL/CURRENT price (ignore crossed-out/original prices)  
+2. Use the FINAL/CURRENT price (ignore crossed-out/original prices)
 3. The "price" field MUST be the LINE TOTAL shown on the receipt for that item
    - Example: If receipt shows "2 x $7.05 = $14.10", return price: 14.10 (NOT 7.05)
    - Example: If receipt shows "SWAD MALAYSIAN  14.10", return price: 14.10
    - The price is ALWAYS the final amount the customer pays for that line, regardless of quantity
-4. EXCLUDE all UI elements (buttons, "Remove", "Save for later", navigation)
-5. EXCLUDE promotional banners and marketing text
-6. EXCLUDE dates, order numbers, and metadata unless it's the store name
-7. Identify delivery fees, service fees, tips separately from items
-8. Identify subtotal and total amounts
-9. If a receipt date is visible, return it as ISO-8601 in receiptDateISO
+4. PROMOTIONAL DISCOUNTS = SUBTRACT FROM PRICE: If a line shows "promo", "discount",
+   "save", "off", "BOGO", "X for $Y", or any per-quantity price reduction, SUBTRACT
+   the discount from the listed price BEFORE computing the line total.
+   - Apply discount per unit, then multiply by quantity for the final price.
+   - Example A: "SWAD MALAYSIAN  $8.99  promo $2 per qty" with quantity 2
+     -> effective unit price = 8.99 - 2.00 = 6.99
+     -> return { quantity: 2, price: 13.98 }   (NOT 8.99, NOT 17.98)
+   - Example B: "MILK 2%  $5.00  $1 off each" with quantity 3
+     -> effective unit price = 4.00
+     -> return { quantity: 3, price: 12.00 }
+   - Example C: "BOGO" / "Buy 1 Get 1 Free" at $10 each with quantity 2
+     -> effective total = $10.00 (one is free)
+     -> return { quantity: 2, price: 10.00 }
+   - Do NOT add the promotion as a separate item or as an entry in "fees".
+     The discount is already baked into the price field.
+5. EXCLUDE all UI elements (buttons, "Remove", "Save for later", navigation)
+6. EXCLUDE promotional banners and marketing text (the BANNER, not the per-line discount handled in rule 4)
+7. EXCLUDE dates, order numbers, and metadata unless it's the store name
+8. Identify delivery fees, service fees, tips separately from items
+9. Identify subtotal and total amounts
+10. If a receipt date is visible, return it as ISO-8601 in receiptDateISO
 
 Return ONLY valid JSON in this exact format (no markdown, no explanation):
 {
@@ -155,11 +176,18 @@ IMPORTANT: "price" = total amount for that line item (what customer pays), NOT p
 
 If you cannot identify any items, return: {"items": [], "fees": [], "subtotal": null, "total": null, "storeName": null, "receiptDateISO": null}`
 
-    // Use stable Gemini 2.0 Flash model (confirmed working)
+    // Model fallback order (April 2026): try the fastest GA model first,
+    // then the more accurate Pro tier, then legacy 2.0 as a last resort.
+    // Gemini 2.5 Flash is GA and Vision-capable; 2.0 is being throttled.
     const models = [
-        'gemini-2.0-flash',
-        'gemini-2.5-flash'
+        'gemini-2.5-flash',
+        'gemini-2.5-pro',
+        'gemini-2.0-flash'
     ]
+
+    // Track whether we hit upstream rate limits so we can surface a 429 to the client
+    // instead of a generic 500.
+    let sawRateLimit = false
 
     for (const model of models) {
         try {
@@ -184,7 +212,13 @@ If you cannot identify any items, return: {"items": [], "fees": [], "subtotal": 
                         }],
                         generationConfig: {
                             temperature: 0.1,
-                            maxOutputTokens: 1024
+                            // 1024 was truncating JSON for receipts with many items, which
+                            // caused JSON.parse to throw and the request to bubble up as 500.
+                            // 2048 gives headroom for ~25 line items + fees + totals.
+                            maxOutputTokens: 2048,
+                            // Force strict JSON output so Gemini does not wrap the payload
+                            // in markdown fences or commentary.
+                            responseMimeType: "application/json"
                         }
                     })
                 }
@@ -193,6 +227,9 @@ If you cannot identify any items, return: {"items": [], "fees": [], "subtotal": 
             if (!response.ok) {
                 const errorText = await response.text()
                 console.error(`Model ${model} failed:`, response.status, errorText)
+                if (response.status === 429) {
+                    sawRateLimit = true
+                }
                 continue // Try next model
             }
 
@@ -244,6 +281,12 @@ If you cannot identify any items, return: {"items": [], "fees": [], "subtotal": 
         }
     }
 
+    if (sawRateLimit) {
+        // Throw a typed error so the top-level handler can return 429 instead of 500.
+        const err = new Error('All Gemini models hit rate limits. Try again in a few seconds.') as Error & { upstreamStatus?: number }
+        err.upstreamStatus = 429
+        throw err
+    }
     throw new Error('All Gemini models failed. Check your API key and ensure Generative Language API is enabled.')
 }
 

@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import Combine
 
 @MainActor
 final class ItemsEditorViewModel: ObservableObject {
@@ -114,15 +115,74 @@ final class ItemsEditorViewModel: ObservableObject {
     }
     
     // MARK: - Initialization
-    
+
+    private let scanId: UUID?
+    private let scanDraftStore: ScanDraftStoreProtocol
+    private var cancellables = Set<AnyCancellable>()
+
     /// Creates a new ItemsEditorViewModel
     /// - Parameters:
     ///   - items: Initial receipt items
     ///   - fees: Extracted fees from OCR (optional)
-    init(items: [ReceiptItem] = [], fees: [Fee] = []) {
-        self.items = items
-        self.extractedFees = fees
-        self.totalAmount = items.reduce(0.0) { $0 + $1.totalPrice }
+    ///   - scanId: ScanMetadata.id used to persist edits across back-then-forward navigation.
+    ///   - scanDraftStore: Cache of in-progress edits (defaults to the shared store).
+    init(
+        items: [ReceiptItem] = [],
+        fees: [Fee] = [],
+        scanId: UUID? = nil,
+        scanDraftStore: ScanDraftStoreProtocol = DependencyContainer.shared.scanDraftStore
+    ) {
+        self.scanId = scanId
+        self.scanDraftStore = scanDraftStore
+
+        // Restore prior edits from the draft so that the user does not lose
+        // changes when navigating back to the upload screen and forward again.
+        if let scanId, let draft = scanDraftStore.draft(for: scanId) {
+            let resolvedItems = draft.items ?? items
+            self.items = resolvedItems
+            self.extractedFees = draft.fees ?? fees
+            // Always recompute totalAmount from the resolved item set rather
+            // than trusting a possibly-stale `draft.totalAmount`. The total
+            // and items can drift if the user edits items but not the total.
+            self.totalAmount = resolvedItems.reduce(0.0) { $0 + $1.totalPrice }
+        } else {
+            self.items = items
+            self.extractedFees = fees
+            self.totalAmount = items.reduce(0.0) { $0 + $1.totalPrice }
+        }
+
+        guard scanId != nil else { return }
+
+        // Persist any future change back to the draft.
+        $items
+            .dropFirst()
+            .sink { [weak self] newItems in
+                guard let self, let scanId = self.scanId else { return }
+                self.scanDraftStore.update(scanId: scanId) { draft in
+                    draft.items = newItems
+                }
+            }
+            .store(in: &cancellables)
+
+        $extractedFees
+            .dropFirst()
+            .sink { [weak self] newFees in
+                guard let self, let scanId = self.scanId else { return }
+                self.scanDraftStore.update(scanId: scanId) { draft in
+                    draft.fees = newFees
+                }
+            }
+            .store(in: &cancellables)
+
+        $totalAmount
+            .dropFirst()
+            .sink { [weak self] newTotal in
+                guard let self, let scanId = self.scanId else { return }
+                self.scanDraftStore.update(scanId: scanId) { draft in
+                    draft.totalAmount = newTotal
+                }
+            }
+            .store(in: &cancellables)
     }
     
     // MARK: - Item Management

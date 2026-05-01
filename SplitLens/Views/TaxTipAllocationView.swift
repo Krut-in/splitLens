@@ -43,7 +43,8 @@ struct TaxTipAllocationView: View {
             fees: fees,
             participants: participants,
             paidBy: paidBy,
-            totalAmount: totalAmount
+            totalAmount: totalAmount,
+            scanId: scanMetadata.id
         ))
         self.scanMetadata = scanMetadata
         _navigationPath = navigationPath

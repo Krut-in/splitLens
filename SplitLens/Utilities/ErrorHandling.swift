@@ -27,11 +27,12 @@ enum OCRError: AppError {
     case invalidImageFormat
     case invalidImage
     case ocrServiceUnavailable
+    case rateLimited
     case networkError(Error)
     case parsingFailed(String)
     case timeout
     case unknown(Error)
-    
+
     var userMessage: String {
         switch self {
         case .imageProcessingFailed:
@@ -44,6 +45,8 @@ enum OCRError: AppError {
             return "Image quality too low. Try better lighting."
         case .ocrServiceUnavailable:
             return "OCR service is currently unavailable. Please try again later."
+        case .rateLimited:
+            return "The OCR service is busy. Retrying with a short delay..."
         case .networkError:
             return "Network error occurred. Please check your internet connection."
         case .parsingFailed:
@@ -54,7 +57,7 @@ enum OCRError: AppError {
             return "An unexpected error occurred during OCR processing."
         }
     }
-    
+
     var technicalDetails: String {
         switch self {
         case .imageProcessingFailed:
@@ -67,6 +70,8 @@ enum OCRError: AppError {
             return "Image size too small or quality insufficient"
         case .ocrServiceUnavailable:
             return "OCR endpoint returned 503 or timeout"
+        case .rateLimited:
+            return "Upstream Gemini API returned 429 Too Many Requests"
         case .networkError(let error):
             return "Network error: \(error.localizedDescription)"
         case .parsingFailed(let details):
@@ -77,7 +82,7 @@ enum OCRError: AppError {
             return "Unknown OCR error: \(error.localizedDescription)"
         }
     }
-    
+
     var errorDescription: String? { userMessage }
 }
 

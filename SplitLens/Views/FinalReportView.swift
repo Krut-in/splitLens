@@ -21,9 +21,7 @@ struct FinalReportView: View {
     // MARK: - State
     
     @State private var showShareSheet = false
-    @State private var shareText = ""
     @State private var selectedSplit: SplitLog?
-    @State private var showExportMenu = false
     @State private var selectedChartTab = 0
     @State private var shareItems: [Any] = []
     
@@ -83,15 +81,6 @@ struct FinalReportView: View {
         }
         .sheet(item: $selectedSplit) { split in
             SettlementDetailModal(split: split, session: viewModel.session)
-        }
-        .confirmationDialog("Export Format", isPresented: $showExportMenu) {
-            ForEach(ReportViewModel.ExportFormat.allCases) { format in
-                Button(action: {
-                    handleExport(format: format)
-                }) {
-                    Label(format.rawValue, systemImage: format.icon)
-                }
-            }
         }
         .successToast(message: viewModel.toastMessage, isShowing: $viewModel.showSuccessToast)
     }
@@ -343,14 +332,15 @@ struct FinalReportView: View {
                 }
             }
             
-            // Export button
+            // Share button - one-tap text export to Messages, Mail, AirDrop, etc.
             ActionButton(
                 icon: "square.and.arrow.up.fill",
-                title: "Export Report",
+                title: "Share Summary",
                 color: .purple,
-                isLoading: viewModel.isGeneratingPDF
+                isLoading: false
             ) {
-                showExportMenu = true
+                shareItems = [viewModel.getShareableSummary()]
+                showShareSheet = true
             }
             
             // Done button
@@ -369,38 +359,6 @@ struct FinalReportView: View {
         }
     }
     
-    // MARK: - Export Handling
-    
-    private func handleExport(format: ReportViewModel.ExportFormat) {
-        Task {
-            switch format {
-            case .pdf:
-                if let pdfData = await viewModel.exportAsPDF() {
-                    // Save to temp file for sharing
-                    let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("SplitLens_Report.pdf")
-                    try? pdfData.write(to: tempURL)
-                    shareItems = [tempURL]
-                    showShareSheet = true
-                }
-                
-            case .csv:
-                shareText = viewModel.exportAsCSV()
-                shareItems = [shareText]
-                showShareSheet = true
-                
-            case .text:
-                shareText = viewModel.getShareableSummary()
-                shareItems = [shareText]
-                showShareSheet = true
-                
-            case .json:
-                if let jsonText = viewModel.exportAsJSON() {
-                    shareItems = [jsonText]
-                    showShareSheet = true
-                }
-            }
-        }
-    }
 }
 
 // MARK: - ReportPersonBreakdownRow
