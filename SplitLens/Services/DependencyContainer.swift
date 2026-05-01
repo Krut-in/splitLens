@@ -37,6 +37,10 @@ final class DependencyContainer {
     /// Pattern learning engine for Smart Assignments.
     let patternLearningEngine: PatternLearningEngineProtocol?
 
+    /// In-memory cache of in-progress scan data so that downstream views
+    /// preserve their state when the user navigates back and forth.
+    let scanDraftStore: ScanDraftStoreProtocol = InMemoryScanDraftStore()
+
     /// Bill splitting calculation service
     let billSplitEngine: BillSplitEngineProtocol
 
@@ -77,21 +81,31 @@ final class DependencyContainer {
         }
 
         // All stores share a single ModelContainer to avoid SwiftData conflicts.
+        let resolvedStores: (
+            session: SessionStoreProtocol,
+            group: GroupStoreProtocol,
+            pattern: PatternStoreProtocol,
+            engine: PatternLearningEngineProtocol?
+        )
+
         do {
             let container = try ModelContainer(for: StoredSession.self, StoredGroup.self, StoredPattern.self)
-            self.sessionStore = try SwiftDataSessionStore(modelContainer: container)
-            self.groupStore = try SwiftDataGroupStore(modelContainer: container)
-            let swiftDataPatternStore = try SwiftDataPatternStore(modelContainer: container)
-            self.patternStore = swiftDataPatternStore
-            self.patternLearningEngine = PatternLearningEngine(patternStore: swiftDataPatternStore)
+            let sessionStoreImpl = try SwiftDataSessionStore(modelContainer: container)
+            let groupStoreImpl = try SwiftDataGroupStore(modelContainer: container)
+            let patternStoreImpl = try SwiftDataPatternStore(modelContainer: container)
+            let engineImpl = PatternLearningEngine(patternStore: patternStoreImpl)
+            resolvedStores = (sessionStoreImpl, groupStoreImpl, patternStoreImpl, engineImpl)
         } catch {
             ErrorHandler.shared.log(error, context: "DependencyContainer.SwiftData")
-            self.sessionStore = InMemorySessionStore()
-            self.groupStore = InMemoryGroupStore()
             let inMemoryPatternStore = InMemoryPatternStore()
-            self.patternStore = inMemoryPatternStore
-            self.patternLearningEngine = PatternLearningEngine(patternStore: inMemoryPatternStore)
+            let engineImpl = PatternLearningEngine(patternStore: inMemoryPatternStore)
+            resolvedStores = (InMemorySessionStore(), InMemoryGroupStore(), inMemoryPatternStore, engineImpl)
         }
+
+        self.sessionStore = resolvedStores.session
+        self.groupStore = resolvedStores.group
+        self.patternStore = resolvedStores.pattern
+        self.patternLearningEngine = resolvedStores.engine
 
         self.receiptImageStore = LocalReceiptImageStore()
 

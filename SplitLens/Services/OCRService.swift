@@ -414,6 +414,16 @@ final class SupabaseOCRService: OCRServiceProtocol {
             switch error {
             case .invalidImageFormat, .invalidImage, .noTextDetected:
                 throw error
+            case .rateLimited:
+                // Rate limits need a longer initial delay than transient network errors.
+                // Start at 4s, then 8s, etc. so Gemini's quota window has time to reset.
+                if attemptNumber < maxRetries {
+                    let delay = UInt64(pow(2.0, Double(attemptNumber)) * 4_000_000_000)
+                    try await Task.sleep(nanoseconds: delay)
+                    return try await processImageStructuredWithRetry(imageData: imageData, attemptNumber: attemptNumber + 1)
+                } else {
+                    throw error
+                }
             case .networkError, .ocrServiceUnavailable, .timeout:
                 if attemptNumber < maxRetries {
                     let delay = UInt64(pow(2.0, Double(attemptNumber)) * 1_000_000_000)
@@ -465,6 +475,8 @@ final class SupabaseOCRService: OCRServiceProtocol {
                 return try parseStructuredResponse(data)
             case 408, 504:
                 throw OCRError.timeout
+            case 429:
+                throw OCRError.rateLimited
             case 500...599:
                 throw OCRError.ocrServiceUnavailable
             default:
@@ -533,6 +545,8 @@ final class SupabaseOCRService: OCRServiceProtocol {
                 return try parseStructuredResponse(data)
             case 408, 504:
                 throw OCRError.timeout
+            case 429:
+                throw OCRError.rateLimited
             case 500...599:
                 throw OCRError.ocrServiceUnavailable
             default:

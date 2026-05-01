@@ -108,7 +108,7 @@ final class PatternLearningEngine: PatternLearningEngineProtocol {
             var bestSimilarity: Double = 0.0
 
             for pattern in allPatterns {
-                let similarity = levenshteinSimilarity(normalizedName, pattern.normalizedItemName)
+                let similarity = Self.levenshteinSimilarity(normalizedName, pattern.normalizedItemName)
                 if similarity >= AppConstants.SmartAssignment.nameSimilarityThreshold {
                     if let current = bestMatch {
                         if patternHasHigherPriority(pattern, than: current, forStoreName: normalizedStore) {

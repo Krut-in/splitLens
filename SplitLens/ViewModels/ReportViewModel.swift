@@ -15,10 +15,7 @@ final class ReportViewModel: ObservableObject {
     
     /// The complete receipt session
     @Published var session: ReceiptSession
-    
-    /// Generated report text
-    @Published var reportText: String = ""
-    
+
     /// Loading state for save operation
     @Published var isSaving = false
     
@@ -30,16 +27,7 @@ final class ReportViewModel: ObservableObject {
     
     /// Warnings from bill split calculation
     @Published var warnings: [BillSplitWarning] = []
-    
-    /// Whether to show share sheet
-    @Published var showShareSheet = false
-    
-    /// Selected export format
-    @Published var selectedExportFormat: ExportFormat = .pdf
-    
-    /// Loading state for PDF generation
-    @Published var isGeneratingPDF = false
-    
+
     /// Show success toast
     @Published var showSuccessToast = false
     
@@ -54,6 +42,7 @@ final class ReportViewModel: ObservableObject {
     private let receiptImageStore: ReceiptImageStoreProtocol
     private let scanMetadata: ScanMetadata
     private let patternLearningEngine: PatternLearningEngineProtocol?
+    private let scanDraftStore: ScanDraftStoreProtocol
     
     // MARK: - Computed Properties
     
@@ -74,7 +63,8 @@ final class ReportViewModel: ObservableObject {
         reportEngine: ReportGenerationEngineProtocol = DependencyContainer.shared.reportEngine,
         sessionStore: SessionStoreProtocol = DependencyContainer.shared.sessionStore,
         receiptImageStore: ReceiptImageStoreProtocol = DependencyContainer.shared.receiptImageStore,
-        patternLearningEngine: PatternLearningEngineProtocol? = DependencyContainer.shared.patternLearningEngine
+        patternLearningEngine: PatternLearningEngineProtocol? = DependencyContainer.shared.patternLearningEngine,
+        scanDraftStore: ScanDraftStoreProtocol = DependencyContainer.shared.scanDraftStore
     ) {
         self.session = session
         self.scanMetadata = scanMetadata
@@ -83,6 +73,7 @@ final class ReportViewModel: ObservableObject {
         self.sessionStore = sessionStore
         self.receiptImageStore = receiptImageStore
         self.patternLearningEngine = patternLearningEngine
+        self.scanDraftStore = scanDraftStore
 
         // Compute splits on initialization
         computeSplits()
@@ -100,10 +91,7 @@ final class ReportViewModel: ObservableObject {
             
             // Clear any previous errors
             errorMessage = nil
-            
-            // Generate report text
-            regenerateReport()
-            
+
         } catch let error as BillSplitError {
             ErrorHandler.shared.log(error, context: "ReportViewModel.computeSplits")
             errorMessage = error.localizedDescription
@@ -118,24 +106,9 @@ final class ReportViewModel: ObservableObject {
         }
     }
     
-    /// Regenerates the report text
-    func regenerateReport() {
-        reportText = reportEngine.generateDetailedReport(for: session)
-    }
-    
-    // MARK: - Report Formats
-    
-    /// Gets text report
-    func getTextReport() -> String {
-        reportEngine.generateTextReport(for: session)
-    }
-    
-    /// Gets detailed report
-    func getDetailedReport() -> String {
-        reportEngine.generateDetailedReport(for: session)
-    }
-    
-    /// Gets shareable summary
+    // MARK: - Share Summary
+
+    /// Gets the rich-text shareable summary used by the Share button.
     func getShareableSummary() -> String {
         reportEngine.generateShareableSummary(for: session)
     }
@@ -178,6 +151,11 @@ final class ReportViewModel: ObservableObject {
             isSaved = true
             successMessage = "Session saved successfully!"
 
+            // The scan draft is no longer needed once the session is saved.
+            // Clearing prevents the next scan with a recycled metadata id from
+            // accidentally restoring this session's items, fees, or assignments.
+            scanDraftStore.clear(scanId: scanMetadata.id)
+
             // Learn assignment patterns from this session (fire-and-forget)
             if let engine = patternLearningEngine {
                 Task {
@@ -208,68 +186,19 @@ final class ReportViewModel: ObservableObject {
         isSaving = false
     }
     
-    // MARK: - Sharing
-    
-    /// Prepares data for sharing
-    func shareReport() {
-        reportText = getShareableSummary()
-        showShareSheet = true
-    }
-    
-    /// Gets items for activity view controller
-    func getShareItems() -> [Any] {
-        [getShareableSummary()]
-    }
-    
-    // MARK: - Export
-    
-    /// Exports as CSV
-    func exportAsCSV() -> String {        return reportEngine.generateCSV(for: session)
-    }
-    
-    /// Exports as JSON
-    func exportAsJSON() -> String? {
-        do {
-            let data = try reportEngine.generateJSON(for: session)
-            return String(data: data, encoding: .utf8)
-        } catch {
-            ErrorHandler.shared.log(error, context: "ReportViewModel.exportAsJSON")
-            return nil
-        }
-    }
-    
+    // MARK: - Per-participant helpers
+
     /// Gets total owed by a participant
     func totalOwed(by participant: String) -> String {
         let amount = session.totalOwed(by: participant)
         return CurrencyFormatter.shared.format(amount)
     }
-    
+
     /// Gets splits for a specific participant
     func splitsFor(participant: String) -> [SplitLog] {
         session.splits(for: participant)
     }
-    
-    // MARK: - PDF Export
-    
-    /// Exports as PDF with loading state
-    func exportAsPDF() async -> Data? {
-        isGeneratingPDF = true
-        
-        // Simulate slight delay for large reports
-        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
-        
-        let pdfData = reportEngine.generatePDF(for: session)
-        
-        isGeneratingPDF = false
-        
-        if !pdfData.isEmpty {
-            toastMessage = "PDF generated successfully!"
-            showSuccessToast = true
-        }
-        
-        return pdfData
-    }
-    
+
     // MARK: - Chart Data
     
     /// Gets per-person totals for pie chart
@@ -312,72 +241,3 @@ final class ReportViewModel: ObservableObject {
     }
 }
 
-// MARK: - Export Format
-
-extension ReportViewModel {
-    /// Available export formats
-    enum ExportFormat: String, CaseIterable, Identifiable {
-        case pdf = "PDF"
-        case csv = "CSV"
-        case text = "Text"
-        case json = "JSON"
-        
-        var id: String { rawValue }
-        
-        var icon: String {
-            switch self {
-            case .pdf: return "doc.fill"
-            case .csv: return "tablecells.fill"
-            case .text: return "doc.text.fill"
-            case .json: return "curlybraces"
-            }
-        }
-        
-        var fileExtension: String {
-            switch self {
-            case .pdf: return "pdf"
-            case .csv: return "csv"
-            case .text: return "txt"
-            case .json: return "json"
-            }
-        }
-    }
-}
-
-// MARK: - Report Types
-
-extension ReportViewModel {
-    enum ReportType {
-        case text
-        case detailed
-        case shareable
-        case csv
-        case json
-        
-        var title: String {
-            switch self {
-            case .text: return "Simple Report"
-            case .detailed: return "Detailed Report"
-            case .shareable: return "Share Summary"
-            case .csv: return "CSV Export"
-            case .json: return "JSON Export"
-            }
-        }
-    }
-    
-    /// Gets report for a specific type
-    func getReport(type: ReportType) -> String {
-        switch type {
-        case .text:
-            return getTextReport()
-        case .detailed:
-            return getDetailedReport()
-        case .shareable:
-            return getShareableSummary()
-        case .csv:
-            return exportAsCSV()
-        case .json:
-            return exportAsJSON() ?? "{}"
-        }
-    }
-}

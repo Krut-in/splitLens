@@ -39,7 +39,8 @@ struct ItemAssignmentView: View {
             items: items,
             participants: participants,
             paidBy: paidBy,
-            storeName: scanMetadata.storeName
+            storeName: scanMetadata.storeName,
+            scanId: scanMetadata.id
         ))
         self.feeAllocations = feeAllocations
         self.scanMetadata = scanMetadata
